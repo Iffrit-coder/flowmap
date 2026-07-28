@@ -7,6 +7,8 @@ Most diagramming tools give you boxes and arrows and stop there. flowmap is buil
 to be a *living process document*: every step carries a status, an owner, a
 duration, and notes, so the map stays useful after the pretty picture is drawn.
 
+**[Try it →](https://iffrit-coder.github.io/flowmap/)**
+
 ![flowmap](docs/screenshot.png)
 
 ## Running it
