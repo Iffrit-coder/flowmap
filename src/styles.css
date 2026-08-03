@@ -399,3 +399,159 @@ textarea:focus {
 .hint-list li + li {
   margin-top: 6px;
 }
+
+/* ---------- back button (editor -> dashboard) ---------- */
+
+.back-btn {
+  flex: none;
+  padding: 6px 10px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ---------- dashboard ---------- */
+
+.dashboard {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.dashboard-header .actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.dashboard-section-label {
+  margin: 28px 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dashboard-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 96px 0;
+  color: var(--muted);
+}
+
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.map-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.map-card-open {
+  height: 88px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 7%, transparent),
+    color-mix(in srgb, var(--accent) 7%, transparent) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--accent);
+}
+
+.map-card-body {
+  padding: 10px 12px;
+}
+
+.map-card-name {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-card-rename {
+  width: 100%;
+  font-weight: 600;
+  padding: 3px 6px;
+}
+
+.map-card-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--line);
+}
+
+.icon-btn {
+  flex: 1 1 auto;
+  min-width: 44px;
+  border: 1px solid transparent;
+  background: none;
+  border-radius: 5px;
+  padding: 4px 6px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.icon-btn:hover {
+  background: var(--bg);
+  color: var(--text);
+  border-color: transparent;
+}
+
+.icon-btn.on {
+  color: var(--loop);
+}
+
+.icon-btn.danger:hover {
+  color: var(--danger);
+}

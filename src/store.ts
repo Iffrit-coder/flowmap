@@ -2,82 +2,12 @@ import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react'
 import type { Connection, EdgeChange, NodeChange, XYPosition } from '@xyflow/react'
 import { nanoid } from 'nanoid'
 import { create } from 'zustand'
+import { loadLibrary, saveLibrary } from './library'
 import { emptyStep } from './types'
 import type { FlowEdge, MapDoc, StepData, StepNode } from './types'
 
-
-const STORAGE_KEY = 'flowmap.doc.v1'
-
-/**
- * Persistence is deliberately a thin layer over a plain serializable doc:
- * local storage today, a row in a database later, same shape either way.
- */
-function load(): MapDoc | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const doc = JSON.parse(raw) as MapDoc
-    if (doc.version !== 1 || !Array.isArray(doc.nodes)) return null
-    return doc
-  } catch {
-    return null
-  }
-}
-
-/**
- * A worked example rather than an empty canvas — a first-time visitor should be
- * able to see what a filled-in step looks like, and what a loop looks like,
- * without building one first.
- */
-function starterDoc(): MapDoc {
-  const steps: StepData[] = [
-    { ...emptyStep(), title: 'Brief', owner: 'Client', duration: 30, status: 'done' },
-    {
-      ...emptyStep(),
-      title: 'Draft',
-      owner: 'Writer',
-      duration: 120,
-      status: 'done',
-      notes: 'First pass. Rough is fine — the review loop is where it tightens up.',
-    },
-    {
-      ...emptyStep(),
-      title: 'Review',
-      owner: 'Editor',
-      duration: 45,
-      status: 'in-progress',
-    },
-    { ...emptyStep(), title: 'Publish', owner: 'Writer', duration: 15 },
-  ]
-  const ids = steps.map(() => nanoid(8))
-
-  return {
-    version: 1,
-    name: 'Untitled process',
-    nodes: steps.map((data, i) => ({
-      id: ids[i],
-      type: 'step' as const,
-      position: { x: 80 + i * 260, y: 200 },
-      data,
-    })),
-    edges: [
-      { id: nanoid(8), source: ids[0], target: ids[1], data: {} },
-      { id: nanoid(8), source: ids[1], target: ids[2], data: {} },
-      { id: nanoid(8), source: ids[2], target: ids[3], data: {} },
-      {
-        id: nanoid(8),
-        source: ids[2],
-        target: ids[1],
-        sourceHandle: 'loop',
-        targetHandle: 'back',
-        data: { label: 'if changes requested' },
-      },
-    ],
-    updatedAt: new Date().toISOString(),
-  }
-}
-
 type State = {
+  id: string | null
   name: string
   nodes: StepNode[]
   edges: FlowEdge[]
@@ -94,16 +24,15 @@ type State = {
   selectEdge: (id: string | null) => void
   rename: (name: string) => void
   toDoc: () => MapDoc
-  loadDoc: (doc: MapDoc) => void
-  reset: () => void
+  loadMap: (doc: MapDoc) => void
 }
 
-const initial = load() ?? starterDoc()
-
+/** The currently-open map's live editing state — one map at a time. */
 export const useStore = create<State>((set, get) => ({
-  name: initial.name,
-  nodes: initial.nodes,
-  edges: initial.edges,
+  id: null,
+  name: '',
+  nodes: [],
+  edges: [],
   selectedId: null,
   selectedEdgeId: null,
 
@@ -155,26 +84,39 @@ export const useStore = create<State>((set, get) => ({
   rename: (name) => set({ name }),
 
   toDoc: () => {
-    const { name, nodes, edges } = get()
-    return { version: 1, name, nodes, edges, updatedAt: new Date().toISOString() }
+    const { id, name, nodes, edges } = get()
+    return { version: 1, id: id ?? nanoid(8), name, nodes, edges, updatedAt: new Date().toISOString() }
   },
 
-  loadDoc: (doc) =>
+  loadMap: (doc) =>
     set({
+      id: doc.id,
       name: doc.name ?? 'Untitled process',
       nodes: doc.nodes ?? [],
       edges: doc.edges ?? [],
       selectedId: null,
+      selectedEdgeId: null,
     }),
-
-  reset: () => {
-    const doc = starterDoc()
-    set({ name: doc.name, nodes: doc.nodes, edges: doc.edges, selectedId: null })
-  },
 }))
 
-/** Autosave: any change to the document lands in local storage, debounced. */
+/**
+ * Autosave writes into the open map's slot in the library, not a key of its
+ * own — the library is the single source of truth once a map has an id.
+ */
 let saveTimer: ReturnType<typeof setTimeout> | undefined
+
+export function flushSave(): void {
+  clearTimeout(saveTimer)
+  const { id, toDoc } = useStore.getState()
+  if (!id) return
+  const doc = toDoc()
+  const library = loadLibrary()
+  const index = library.maps.findIndex((m) => m.id === id)
+  if (index === -1) return
+  library.maps[index] = doc
+  saveLibrary(library)
+}
+
 useStore.subscribe((state, prev) => {
   if (
     state.nodes === prev.nodes &&
@@ -182,8 +124,9 @@ useStore.subscribe((state, prev) => {
     state.name === prev.name
   )
     return
+  if (!state.id) return
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(useStore.getState().toDoc()))
-  }, 400)
+  saveTimer = setTimeout(flushSave, 400)
 })
+
+window.addEventListener('beforeunload', flushSave)
