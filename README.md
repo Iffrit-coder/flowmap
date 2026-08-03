@@ -6,6 +6,7 @@ and the loops where it doubles back on itself.
 Most diagramming tools give you boxes and arrows and stop there. flowmap is built
 to be a *living process document*: every step carries a status, an owner, a
 duration, and notes, so the map stays useful after the pretty picture is drawn.
+It holds any number of maps at once, like a small Drive for process diagrams.
 
 **[Try it →](https://iffrit-coder.github.io/flowmap/)**
 
@@ -21,6 +22,10 @@ No backend, no accounts, no API keys.
 
 ## Using it
 
+- **Dashboard** — the landing page. **+ New map** opens a blank one; **Import**
+  adds a `.flowmap.json` file to the collection. Each card can be pinned,
+  renamed (double-click the title, or the row action), duplicated, exported, or
+  deleted, without opening it.
 - **Steps** — double-click empty canvas, or hit **+ Step**. Select a step to edit
   its title, status, owner, duration, and notes in the side panel. Owner and
   duration surface on the node; status colors its left edge.
@@ -49,13 +54,18 @@ return arrow stays one.
 
 ## Storage
 
-Local for now. The map autosaves to `localStorage`, and **Export** / **Import**
-move it as a `.flowmap.json` file.
+Local for now. Every map lives in one `localStorage` library keyed by id, and
+the open map autosaves into its own slot (flushed on navigating away or closing
+the tab, not just on a debounce timer). **Export** / **Import** move a single
+map as a `.flowmap.json` file — importing always assigns a fresh id, so
+re-importing a file never collides with the original.
 
 The saved shape is a plain serializable `MapDoc` ([src/types.ts](src/types.ts))
-and the store touches storage in exactly one subscriber, so putting the same
-document behind a database and a sync layer later is additive rather than a
-rewrite.
+and the storage layer ([src/library.ts](src/library.ts)) is the only thing that
+touches `localStorage`, so putting the same documents behind a database and a
+sync layer later is additive rather than a rewrite. Routing between the
+dashboard and an open map is a plain `#/map/<id>` hash — no server-side rewrite
+needed, which matters on GitHub Pages.
 
 ## Built with
 
