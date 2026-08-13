@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import { create } from 'zustand'
 import { blankMap, loadLibrary, saveLibrary } from './library'
-import type { MapDoc } from './types'
+import type { Library, MapDoc } from './types'
 
 type LibraryState = {
   maps: MapDoc[]
@@ -13,6 +13,7 @@ type LibraryState = {
   renameMap: (id: string, name: string) => void
   duplicateMap: (id: string) => string
   importMap: (doc: MapDoc) => string
+  importLibrary: (bundle: Library) => void
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
@@ -82,5 +83,22 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     saveLibrary(library)
     set({ maps: library.maps, pinned: library.pinned })
     return imported.id
+  },
+
+  importLibrary: (bundle) => {
+    const library = loadLibrary()
+    const idMap = new Map<string, string>()
+    const imported = bundle.maps.map((doc): MapDoc => {
+      const id = nanoid(8)
+      idMap.set(doc.id, id)
+      return { ...doc, id, updatedAt: new Date().toISOString() }
+    })
+    const newlyPinned = bundle.pinned
+      .map((id) => idMap.get(id))
+      .filter((id): id is string => id !== undefined)
+    library.maps = [...library.maps, ...imported]
+    library.pinned = [...library.pinned, ...newlyPinned]
+    saveLibrary(library)
+    set({ maps: library.maps, pinned: library.pinned })
   },
 }))

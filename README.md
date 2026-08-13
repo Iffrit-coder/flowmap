@@ -23,8 +23,10 @@ No backend, no accounts, no API keys.
 ## Using it
 
 - **Dashboard** — the landing page. **+ New map** opens a blank one; **Import**
-  adds a `.flowmap.json` file to the collection. Each card can be pinned,
-  renamed (double-click the title, or the row action), duplicated, exported, or
+  adds a `.flowmap.json` file to the collection, or merges a whole
+  `flowmap-library.json` bundle in (see below). **Export all** downloads every
+  map on the dashboard as one bundle. Each card can be pinned, renamed
+  (double-click the title, or the row action), duplicated, exported, or
   deleted, without opening it.
 - **Steps** — double-click empty canvas, or hit **+ Step**. Select a step to edit
   its title, status, owner, duration, and notes in the side panel. Owner and
@@ -57,8 +59,11 @@ return arrow stays one.
 Local for now. Every map lives in one `localStorage` library keyed by id, and
 the open map autosaves into its own slot (flushed on navigating away or closing
 the tab, not just on a debounce timer). **Export** / **Import** move a single
-map as a `.flowmap.json` file — importing always assigns a fresh id, so
-re-importing a file never collides with the original.
+map as a `.flowmap.json` file; **Export all** / **Import** move the whole
+dashboard as one `flowmap-library.json` bundle. Either way, import always
+assigns fresh ids (carrying pinned status along for a bundle), so re-importing
+a file — or importing someone else's export — never collides with what's
+already on the dashboard.
 
 The saved shape is a plain serializable `MapDoc` ([src/types.ts](src/types.ts))
 and the storage layer ([src/library.ts](src/library.ts)) is the only thing that

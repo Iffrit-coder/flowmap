@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { downloadDoc } from '../download'
+import { downloadDoc, downloadLibrary } from '../download'
 import { findBackEdges, formatDuration, totalDuration } from '../graph'
 import { useLibraryStore } from '../libraryStore'
-import type { MapDoc } from '../types'
+import type { Library, MapDoc } from '../types'
 
 function summarize(doc: MapDoc) {
   return {
@@ -144,6 +144,7 @@ export default function Dashboard() {
   const refresh = useLibraryStore((s) => s.refresh)
   const createMap = useLibraryStore((s) => s.createMap)
   const importMap = useLibraryStore((s) => s.importMap)
+  const importLibrary = useLibraryStore((s) => s.importLibrary)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -157,11 +158,21 @@ export default function Dashboard() {
     window.location.hash = `#/map/${createMap()}`
   }
 
+  const handleExportAll = () => {
+    downloadLibrary({ version: 1, maps, pinned })
+  }
+
   const handleImportFile = async (file: File) => {
     try {
-      const doc = JSON.parse(await file.text()) as MapDoc
-      if (doc.version !== 1 || !Array.isArray(doc.nodes)) throw new Error('bad file')
-      window.location.hash = `#/map/${importMap(doc)}`
+      const parsed = JSON.parse(await file.text()) as Partial<Library> & Partial<MapDoc>
+      if (parsed.version !== 1) throw new Error('bad file')
+      if (Array.isArray(parsed.maps)) {
+        importLibrary(parsed as Library)
+      } else if (Array.isArray(parsed.nodes)) {
+        window.location.hash = `#/map/${importMap(parsed as MapDoc)}`
+      } else {
+        throw new Error('bad file')
+      }
     } catch {
       alert("That file isn't a flowmap export.")
     }
@@ -175,6 +186,11 @@ export default function Dashboard() {
           <button type="button" onClick={() => fileInput.current?.click()}>
             Import
           </button>
+          {maps.length > 0 && (
+            <button type="button" onClick={handleExportAll}>
+              Export all
+            </button>
+          )}
           <button type="button" className="primary" onClick={handleNew}>
             + New map
           </button>

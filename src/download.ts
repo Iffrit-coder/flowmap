@@ -1,11 +1,20 @@
-import type { MapDoc } from './types'
+import type { Library, MapDoc } from './types'
 
-export function downloadDoc(doc: MapDoc): void {
-  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${(doc.name || 'process').replace(/[^\w-]+/g, '-').toLowerCase()}.flowmap.json`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+export function downloadDoc(doc: MapDoc): void {
+  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+  triggerDownload(blob, `${(doc.name || 'process').replace(/[^\w-]+/g, '-').toLowerCase()}.flowmap.json`)
+}
+
+export function downloadLibrary(library: Library): void {
+  const blob = new Blob([JSON.stringify(library, null, 2)], { type: 'application/json' })
+  triggerDownload(blob, 'flowmap-library.json')
 }
