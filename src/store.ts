@@ -2,7 +2,7 @@ import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react'
 import type { Connection, EdgeChange, NodeChange, XYPosition } from '@xyflow/react'
 import { nanoid } from 'nanoid'
 import { create } from 'zustand'
-import { loadLibrary, saveLibrary } from './library'
+import * as api from './api'
 import { emptyStep } from './types'
 import type { FlowEdge, MapDoc, StepData, StepNode } from './types'
 
@@ -11,6 +11,7 @@ type State = {
   name: string
   nodes: StepNode[]
   edges: FlowEdge[]
+  pinned: boolean
   selectedId: string | null
   selectedEdgeId: string | null
   onNodesChange: (changes: NodeChange<StepNode>[]) => void
@@ -33,6 +34,7 @@ export const useStore = create<State>((set, get) => ({
   name: '',
   nodes: [],
   edges: [],
+  pinned: false,
   selectedId: null,
   selectedEdgeId: null,
 
@@ -84,8 +86,8 @@ export const useStore = create<State>((set, get) => ({
   rename: (name) => set({ name }),
 
   toDoc: () => {
-    const { id, name, nodes, edges } = get()
-    return { version: 1, id: id ?? nanoid(8), name, nodes, edges, updatedAt: new Date().toISOString() }
+    const { id, name, nodes, edges, pinned } = get()
+    return { version: 1, id: id ?? nanoid(8), name, nodes, edges, pinned, updatedAt: new Date().toISOString() }
   },
 
   loadMap: (doc) =>
@@ -94,27 +96,24 @@ export const useStore = create<State>((set, get) => ({
       name: doc.name ?? 'Untitled process',
       nodes: doc.nodes ?? [],
       edges: doc.edges ?? [],
+      pinned: doc.pinned ?? false,
       selectedId: null,
       selectedEdgeId: null,
     }),
 }))
 
 /**
- * Autosave writes into the open map's slot in the library, not a key of its
- * own — the library is the single source of truth once a map has an id.
+ * Autosave writes only the fields the editor actually owns (name/nodes/edges)
+ * — pinned status is set from the dashboard and just carried through here so
+ * an autosave can never silently unpin a map.
  */
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 
-export function flushSave(): void {
+export function flushSave(keepalive = false): void {
   clearTimeout(saveTimer)
-  const { id, toDoc } = useStore.getState()
+  const { id, name, nodes, edges } = useStore.getState()
   if (!id) return
-  const doc = toDoc()
-  const library = loadLibrary()
-  const index = library.maps.findIndex((m) => m.id === id)
-  if (index === -1) return
-  library.maps[index] = doc
-  saveLibrary(library)
+  void api.updateMap(id, { name, nodes, edges }, keepalive)
 }
 
 useStore.subscribe((state, prev) => {
@@ -126,7 +125,7 @@ useStore.subscribe((state, prev) => {
     return
   if (!state.id) return
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(flushSave, 400)
+  saveTimer = setTimeout(() => flushSave(), 400)
 })
 
-window.addEventListener('beforeunload', flushSave)
+window.addEventListener('beforeunload', () => flushSave(true))

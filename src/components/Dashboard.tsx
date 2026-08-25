@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAuthStore } from '../authStore'
 import { downloadDoc, downloadLibrary } from '../download'
 import { findBackEdges, formatDuration, totalDuration } from '../graph'
 import { useLibraryStore } from '../libraryStore'
@@ -27,7 +28,7 @@ function byRecent(a: MapDoc, b: MapDoc): number {
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
 }
 
-function Card({ doc, pinned }: { doc: MapDoc; pinned: boolean }) {
+function Card({ doc }: { doc: MapDoc }) {
   const togglePin = useLibraryStore((s) => s.togglePin)
   const deleteMap = useLibraryStore((s) => s.deleteMap)
   const duplicateMap = useLibraryStore((s) => s.duplicateMap)
@@ -101,11 +102,11 @@ function Card({ doc, pinned }: { doc: MapDoc; pinned: boolean }) {
       <div className="map-card-actions">
         <button
           type="button"
-          className={`icon-btn${pinned ? ' on' : ''}`}
-          title={pinned ? 'Unpin' : 'Pin'}
+          className={`icon-btn${doc.pinned ? ' on' : ''}`}
+          title={doc.pinned ? 'Unpin' : 'Pin'}
           onClick={() => togglePin(doc.id)}
         >
-          {pinned ? '★ Pinned' : '☆ Pin'}
+          {doc.pinned ? '★ Pinned' : '☆ Pin'}
         </button>
         <button type="button" className="icon-btn" title="Rename" onClick={() => setEditing(true)}>
           Rename
@@ -140,26 +141,31 @@ function Card({ doc, pinned }: { doc: MapDoc; pinned: boolean }) {
 
 export default function Dashboard() {
   const maps = useLibraryStore((s) => s.maps)
-  const pinned = useLibraryStore((s) => s.pinned)
   const refresh = useLibraryStore((s) => s.refresh)
   const createMap = useLibraryStore((s) => s.createMap)
   const importMap = useLibraryStore((s) => s.importMap)
   const importLibrary = useLibraryStore((s) => s.importLibrary)
+  const email = useAuthStore((s) => s.email)
+  const logout = useAuthStore((s) => s.logout)
   const fileInput = useRef<HTMLInputElement>(null)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     refresh()
   }, [refresh])
 
-  const pinnedMaps = maps.filter((m) => pinned.includes(m.id)).sort(byRecent)
-  const otherMaps = maps.filter((m) => !pinned.includes(m.id)).sort(byRecent)
+  const matching = query.trim()
+    ? maps.filter((m) => m.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : maps
+  const pinnedMaps = matching.filter((m) => m.pinned).sort(byRecent)
+  const otherMaps = matching.filter((m) => !m.pinned).sort(byRecent)
 
-  const handleNew = () => {
-    window.location.hash = `#/map/${createMap()}`
+  const handleNew = async () => {
+    window.location.hash = `#/map/${await createMap()}`
   }
 
   const handleExportAll = () => {
-    downloadLibrary({ version: 1, maps, pinned })
+    downloadLibrary(maps)
   }
 
   const handleImportFile = async (file: File) => {
@@ -167,9 +173,9 @@ export default function Dashboard() {
       const parsed = JSON.parse(await file.text()) as Partial<Library> & Partial<MapDoc>
       if (parsed.version !== 1) throw new Error('bad file')
       if (Array.isArray(parsed.maps)) {
-        importLibrary(parsed as Library)
+        await importLibrary(parsed.maps)
       } else if (Array.isArray(parsed.nodes)) {
-        window.location.hash = `#/map/${importMap(parsed as MapDoc)}`
+        window.location.hash = `#/map/${await importMap(parsed as MapDoc)}`
       } else {
         throw new Error('bad file')
       }
@@ -208,12 +214,33 @@ export default function Dashboard() {
         />
       </header>
 
+      <div className="dashboard-toolbar">
+        <input
+          type="search"
+          className="search-input"
+          placeholder="Search maps by name…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search maps"
+        />
+        <div className="account">
+          <span className="account-email">{email}</span>
+          <button type="button" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </div>
+
       {maps.length === 0 ? (
         <div className="dashboard-empty">
           <p>No maps yet.</p>
           <button type="button" className="primary" onClick={handleNew}>
             Create your first map
           </button>
+        </div>
+      ) : matching.length === 0 ? (
+        <div className="dashboard-empty">
+          <p>No maps match "{query}".</p>
         </div>
       ) : (
         <>
@@ -222,7 +249,7 @@ export default function Dashboard() {
               <h2 className="dashboard-section-label">Pinned</h2>
               <div className="map-grid">
                 {pinnedMaps.map((doc) => (
-                  <Card key={doc.id} doc={doc} pinned />
+                  <Card key={doc.id} doc={doc} />
                 ))}
               </div>
             </section>
@@ -231,7 +258,7 @@ export default function Dashboard() {
             {pinnedMaps.length > 0 && <h2 className="dashboard-section-label">All maps</h2>}
             <div className="map-grid">
               {otherMaps.map((doc) => (
-                <Card key={doc.id} doc={doc} pinned={false} />
+                <Card key={doc.id} doc={doc} />
               ))}
             </div>
           </section>

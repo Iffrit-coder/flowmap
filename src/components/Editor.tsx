@@ -11,8 +11,8 @@ import {
 import type { OnSelectionChangeParams } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
+import * as api from '../api'
 import { findBackEdges } from '../graph'
-import { loadLibrary } from '../library'
 import { flushSave, useStore } from '../store'
 import Inspector from './Inspector'
 import LoopEdge from './LoopEdge'
@@ -34,18 +34,25 @@ function EditorCanvas({ mapId }: { mapId: string }) {
   const loadMap = useStore((s) => s.loadMap)
   const { screenToFlowPosition, fitView } = useReactFlow()
 
-  // The map's own content lives in the library, keyed by id, until it's
-  // opened — loading it here (rather than at store-creation time) is what
-  // lets one editor serve any map the dashboard links it to.
+  // The map's own content lives server-side, keyed by id, until it's opened —
+  // loading it here (rather than at store-creation time) is what lets one
+  // editor serve any map the dashboard links it to.
   useEffect(() => {
-    const doc = loadLibrary().maps.find((m) => m.id === mapId)
-    if (!doc) {
-      window.location.hash = ''
-      return
+    let cancelled = false
+    api.listMaps().then(({ maps }) => {
+      if (cancelled) return
+      const doc = maps.find((m) => m.id === mapId)
+      if (!doc) {
+        window.location.hash = ''
+        return
+      }
+      loadMap(doc)
+      // fitView needs the new nodes to have committed and painted first.
+      requestAnimationFrame(() => fitView())
+    })
+    return () => {
+      cancelled = true
     }
-    loadMap(doc)
-    // fitView needs the new nodes to have committed and painted first.
-    requestAnimationFrame(() => fitView())
   }, [mapId, loadMap, fitView])
 
   useEffect(() => () => flushSave(), [])

@@ -29,21 +29,21 @@ export type EdgeData = {
 
 export type FlowEdge = Edge<EdgeData>
 
-/** The serialized document — this is what we save, export, and will later sync. */
+/** The serialized document — this is what we save, export, and sync to the server. */
 export type MapDoc = {
   version: 1
   id: string
   name: string
   nodes: StepNode[]
   edges: FlowEdge[]
+  pinned: boolean
   updatedAt: string
 }
 
-/** The dashboard's collection of maps — everything that isn't one map's own content. */
+/** A bulk export/import bundle — the whole dashboard as one file. */
 export type Library = {
   version: 1
   maps: MapDoc[]
-  pinned: string[]
 }
 
 export const emptyStep = (): StepData => ({

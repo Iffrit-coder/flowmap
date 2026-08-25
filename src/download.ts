@@ -14,7 +14,8 @@ export function downloadDoc(doc: MapDoc): void {
   triggerDownload(blob, `${(doc.name || 'process').replace(/[^\w-]+/g, '-').toLowerCase()}.flowmap.json`)
 }
 
-export function downloadLibrary(library: Library): void {
+export function downloadLibrary(maps: MapDoc[]): void {
+  const library: Library = { version: 1, maps }
   const blob = new Blob([JSON.stringify(library, null, 2)], { type: 'application/json' })
   triggerDownload(blob, 'flowmap-library.json')
 }

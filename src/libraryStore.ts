@@ -1,104 +1,72 @@
-import { nanoid } from 'nanoid'
 import { create } from 'zustand'
-import { blankMap, loadLibrary, saveLibrary } from './library'
-import type { Library, MapDoc } from './types'
+import * as api from './api'
+import type { MapDoc } from './types'
 
 type LibraryState = {
   maps: MapDoc[]
-  pinned: string[]
-  refresh: () => void
-  createMap: () => string
-  deleteMap: (id: string) => void
-  togglePin: (id: string) => void
-  renameMap: (id: string, name: string) => void
-  duplicateMap: (id: string) => string
-  importMap: (doc: MapDoc) => string
-  importLibrary: (bundle: Library) => void
+  loaded: boolean
+  refresh: () => Promise<void>
+  createMap: () => Promise<string>
+  deleteMap: (id: string) => Promise<void>
+  togglePin: (id: string) => Promise<void>
+  renameMap: (id: string, name: string) => Promise<void>
+  duplicateMap: (id: string) => Promise<string>
+  importMap: (doc: Partial<MapDoc>) => Promise<string>
+  importLibrary: (docs: Partial<MapDoc>[]) => Promise<void>
 }
 
-export const useLibraryStore = create<LibraryState>((set) => ({
+export const useLibraryStore = create<LibraryState>((set, get) => ({
   maps: [],
-  pinned: [],
+  loaded: false,
 
-  refresh: () => {
-    const library = loadLibrary()
-    set({ maps: library.maps, pinned: library.pinned })
+  refresh: async () => {
+    const { maps } = await api.listMaps()
+    set({ maps, loaded: true })
   },
 
-  createMap: () => {
-    const doc = blankMap()
-    const library = loadLibrary()
-    library.maps = [...library.maps, doc]
-    saveLibrary(library)
-    set({ maps: library.maps, pinned: library.pinned })
+  createMap: async () => {
+    const doc = await api.createMap()
+    set((s) => ({ maps: [...s.maps, doc] }))
     return doc.id
   },
 
-  deleteMap: (id) => {
-    const library = loadLibrary()
-    library.maps = library.maps.filter((m) => m.id !== id)
-    library.pinned = library.pinned.filter((p) => p !== id)
-    saveLibrary(library)
-    set({ maps: library.maps, pinned: library.pinned })
+  deleteMap: async (id) => {
+    await api.deleteMap(id)
+    set((s) => ({ maps: s.maps.filter((m) => m.id !== id) }))
   },
 
-  togglePin: (id) => {
-    const library = loadLibrary()
-    library.pinned = library.pinned.includes(id)
-      ? library.pinned.filter((p) => p !== id)
-      : [...library.pinned, id]
-    saveLibrary(library)
-    set({ pinned: library.pinned })
+  togglePin: async (id) => {
+    const current = get().maps.find((m) => m.id === id)
+    if (!current) return
+    const updated = await api.updateMap(id, { pinned: !current.pinned })
+    set((s) => ({ maps: s.maps.map((m) => (m.id === id ? updated : m)) }))
   },
 
-  renameMap: (id, name) => {
-    const library = loadLibrary()
-    library.maps = library.maps.map((m) =>
-      m.id === id ? { ...m, name, updatedAt: new Date().toISOString() } : m,
-    )
-    saveLibrary(library)
-    set({ maps: library.maps })
+  renameMap: async (id, name) => {
+    const updated = await api.updateMap(id, { name })
+    set((s) => ({ maps: s.maps.map((m) => (m.id === id ? updated : m)) }))
   },
 
-  duplicateMap: (id) => {
-    const library = loadLibrary()
-    const original = library.maps.find((m) => m.id === id)
+  duplicateMap: async (id) => {
+    const original = get().maps.find((m) => m.id === id)
     if (!original) return id
-    const copy: MapDoc = {
-      ...original,
-      id: nanoid(8),
+    const copy = await api.createMap({
       name: `${original.name} (copy)`,
-      updatedAt: new Date().toISOString(),
-    }
-    library.maps = [...library.maps, copy]
-    saveLibrary(library)
-    set({ maps: library.maps })
+      nodes: original.nodes,
+      edges: original.edges,
+    })
+    set((s) => ({ maps: [...s.maps, copy] }))
     return copy.id
   },
 
-  importMap: (doc) => {
-    const library = loadLibrary()
-    const imported: MapDoc = { ...doc, id: nanoid(8), updatedAt: new Date().toISOString() }
-    library.maps = [...library.maps, imported]
-    saveLibrary(library)
-    set({ maps: library.maps, pinned: library.pinned })
-    return imported.id
+  importMap: async (doc) => {
+    const { maps } = await api.importMaps([doc])
+    set((s) => ({ maps: [...s.maps, ...maps] }))
+    return maps[0].id
   },
 
-  importLibrary: (bundle) => {
-    const library = loadLibrary()
-    const idMap = new Map<string, string>()
-    const imported = bundle.maps.map((doc): MapDoc => {
-      const id = nanoid(8)
-      idMap.set(doc.id, id)
-      return { ...doc, id, updatedAt: new Date().toISOString() }
-    })
-    const newlyPinned = bundle.pinned
-      .map((id) => idMap.get(id))
-      .filter((id): id is string => id !== undefined)
-    library.maps = [...library.maps, ...imported]
-    library.pinned = [...library.pinned, ...newlyPinned]
-    saveLibrary(library)
-    set({ maps: library.maps, pinned: library.pinned })
+  importLibrary: async (docs) => {
+    const { maps } = await api.importMaps(docs)
+    set((s) => ({ maps: [...s.maps, ...maps] }))
   },
 }))

@@ -555,3 +555,86 @@ textarea:focus {
 .icon-btn.danger:hover {
   color: var(--danger);
 }
+
+/* ---------- dashboard toolbar (search + account) ---------- */
+
+.dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.search-input {
+  flex: 0 1 320px;
+}
+
+.account {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- auth screen ---------- */
+
+.auth-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 24px;
+}
+
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  padding: 28px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.auth-subtitle {
+  margin: -6px 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.auth-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.auth-switch {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  padding: 2px;
+}
+
+.auth-switch:hover {
+  border-color: transparent;
+  text-decoration: underline;
+}

@@ -11,12 +11,13 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n web,api -c blue,green \"vite\" \"tsx watch scripts/dev-api-server.ts\"",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.1",
     "@xyflow/react": "^12.11.2",
     "nanoid": "^6.0.0",
     "react": "^19.2.7",
@@ -28,7 +29,10 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^9.1.2",
+    "dotenv": "^17.0.0",
     "oxlint": "^1.71.0",
+    "tsx": "^4.19.2",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
   }

@@ -6,23 +6,37 @@ and the loops where it doubles back on itself.
 Most diagramming tools give you boxes and arrows and stop there. flowmap is built
 to be a *living process document*: every step carries a status, an owner, a
 duration, and notes, so the map stays useful after the pretty picture is drawn.
-It holds any number of maps at once, like a small Drive for process diagrams.
-
-**[Try it →](https://iffrit-coder.github.io/flowmap/)**
+It holds any number of maps at once, like a small Drive for process diagrams —
+with an account of your own, so your maps follow you across browsers and devices.
 
 ![flowmap](docs/screenshot.png)
 
 ## Running it
 
+You need a Postgres database (a free [Neon](https://neon.tech) project works) —
+put its connection string in `.env.local`:
+
+```
+DATABASE_URL=postgresql://...
+```
+
+Then:
+
 ```bash
 npm install && npm run dev
 ```
 
-No backend, no accounts, no API keys.
+This runs the Vite dev server and a local API dev server together (`concurrently`),
+with `/api` proxied from Vite to the API server. Both talk to the same handler
+code that runs on the production deployment.
 
 ## Using it
 
-- **Dashboard** — the landing page. **+ New map** opens a blank one; **Import**
+- **Accounts** — sign up with an email and password. Your maps are stored under
+  your account, not just in one browser, so they're there whichever device you
+  sign in from.
+- **Dashboard** — the landing page. **Search** filters by name — handy once you
+  have more than a screenful of maps. **+ New map** opens a blank one; **Import**
   adds a `.flowmap.json` file to the collection, or merges a whole
   `flowmap-library.json` bundle in (see below). **Export all** downloads every
   map on the dashboard as one bundle. Each card can be pinned, renamed
@@ -54,25 +68,28 @@ read — and whatever would close a cycle is a loop. Edges drawn between the
 dedicated loop handles are considered last, so an arrow you explicitly drew as a
 return arrow stays one.
 
-## Storage
+## Architecture
 
-Local for now. Every map lives in one `localStorage` library keyed by id, and
-the open map autosaves into its own slot (flushed on navigating away or closing
-the tab, not just on a debounce timer). **Export** / **Import** move a single
-map as a `.flowmap.json` file; **Export all** / **Import** move the whole
-dashboard as one `flowmap-library.json` bundle. Either way, import always
-assigns fresh ids (carrying pinned status along for a bundle), so re-importing
-a file — or importing someone else's export — never collides with what's
-already on the dashboard.
+A Vite + React frontend and a small set of [Vercel functions](api/) under `/api`
+sharing one Postgres database (Neon). Auth is plain email/password — passwords
+hashed with `scrypt`, sessions as opaque tokens in a `sessions` table and an
+`httpOnly` cookie — no third-party auth provider. Every map row belongs to one
+user; `pinned` lives on the map itself rather than as a separate list.
 
-The saved shape is a plain serializable `MapDoc` ([src/types.ts](src/types.ts))
-and the storage layer ([src/library.ts](src/library.ts)) is the only thing that
-touches `localStorage`, so putting the same documents behind a database and a
-sync layer later is additive rather than a rewrite. Routing between the
-dashboard and an open map is a plain `#/map/<id>` hash — no server-side rewrite
-needed, which matters on GitHub Pages.
+Routing between the dashboard and an open map is a `#/map/<id>` hash, not a real
+path — no server-side rewrite needed for it. The editor autosaves into the map's
+row on a debounce, flushed synchronously (via `fetch(..., { keepalive: true })`)
+on navigating away or closing the tab.
+
+**Export** / **Import** move a single map as a `.flowmap.json` file; **Export
+all** / **Import** move the whole dashboard as one `flowmap-library.json`
+bundle. Either way, import always assigns fresh ids (carrying pinned status
+along for a bundle), so re-importing a file — or importing someone else's
+export — never collides with what's already on your dashboard. The saved shape
+is a plain serializable `MapDoc` ([src/types.ts](src/types.ts)).
 
 ## Built with
 
 [React Flow](https://reactflow.dev) for the canvas, Zustand for state, Vite +
-React + TypeScript. MIT licensed.
+React + TypeScript on the frontend; [Neon](https://neon.tech) Postgres and
+Vercel functions on the backend. MIT licensed.
