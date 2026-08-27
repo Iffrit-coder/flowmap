@@ -2,12 +2,33 @@ import type { MapDoc } from './types'
 
 class ApiError extends Error {}
 
+/** A response that isn't JSON didn't come from our handlers at all — it's a
+ * static host's 404 page or a platform error page, which means the app is
+ * deployed somewhere `/api` doesn't exist. Say that, rather than surfacing a
+ * bare status code that looks like a rejected password. */
+function unreachable(status: number): ApiError {
+  return new ApiError(
+    status === 404
+      ? "Can't reach the flowmap server. This build is deployed without its backend."
+      : `Can't reach the flowmap server (${status}).`,
+  )
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
+  let res: Response
+  try {
+    res = await fetch(`/api${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      ...init,
+    })
+  } catch {
+    throw new ApiError("Can't reach the flowmap server. Check your connection.")
+  }
+
+  if (!res.headers.get('content-type')?.includes('application/json')) {
+    throw unreachable(res.status)
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new ApiError((body as { error?: string }).error ?? `Request failed (${res.status})`)

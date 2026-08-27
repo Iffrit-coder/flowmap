@@ -20,6 +20,12 @@ put its connection string in `.env.local`:
 DATABASE_URL=postgresql://...
 ```
 
+Create the tables once:
+
+```bash
+psql "$DATABASE_URL" -f db/schema.sql
+```
+
 Then:
 
 ```bash
@@ -29,6 +35,21 @@ npm install && npm run dev
 This runs the Vite dev server and a local API dev server together (`concurrently`),
 with `/api` proxied from Vite to the API server. Both talk to the same handler
 code that runs on the production deployment.
+
+## Deploying
+
+The `/api` handlers are [Vercel functions](api/), so the whole thing — frontend
+and backend — deploys as one Vercel project. It cannot be hosted on a static
+host: without a server for `/api`, sign-up and login have nothing to talk to.
+
+```bash
+npx vercel link
+npx vercel env add DATABASE_URL production
+npx vercel --prod
+```
+
+`DATABASE_URL` is the only environment variable. Point it at the same Neon
+database as local dev, or a separate one with `db/schema.sql` applied.
 
 ## Using it
 
