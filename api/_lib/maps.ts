@@ -1,4 +1,4 @@
-import type { MapDoc } from '../../src/types'
+import type { MapDoc } from '../../src/types.js'
 
 export function toMapDoc(row: Record<string, unknown>): MapDoc {
   return {

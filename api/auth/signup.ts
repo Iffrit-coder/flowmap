@@ -1,9 +1,9 @@
 import { nanoid } from 'nanoid'
-import { createSession, hashPassword } from '../_lib/auth'
-import sql from '../_lib/db'
-import { readJson, sendJson } from '../_lib/http'
-import type { ApiRequest } from '../_lib/http'
-import { demoDoc } from '../../src/demoMap'
+import { createSession, hashPassword } from '../_lib/auth.js'
+import sql from '../_lib/db.js'
+import { readJson, sendJson } from '../_lib/http.js'
+import type { ApiRequest } from '../_lib/http.js'
+import { demoDoc } from '../../src/demoMap.js'
 import type { ServerResponse } from 'node:http'
 
 export default async function handler(req: ApiRequest, res: ServerResponse) {

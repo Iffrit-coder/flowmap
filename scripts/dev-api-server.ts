@@ -2,7 +2,7 @@ import { config } from 'dotenv'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { URL } from 'node:url'
-import type { ApiRequest } from '../api/_lib/http'
+import type { ApiRequest } from '../api/_lib/http.js'
 
 config({ path: '.env.local' })
 
@@ -11,13 +11,13 @@ type Handler = (req: ApiRequest, res: ServerResponse) => Promise<void> | void
 /** Mirrors Vercel's file-based /api routing so the same handler modules run
  * identically in local dev and in production. */
 async function resolveHandler(pathname: string): Promise<Handler | null> {
-  if (pathname === '/api/auth/signup') return (await import('../api/auth/signup')).default
-  if (pathname === '/api/auth/login') return (await import('../api/auth/login')).default
-  if (pathname === '/api/auth/logout') return (await import('../api/auth/logout')).default
-  if (pathname === '/api/auth/me') return (await import('../api/auth/me')).default
-  if (pathname === '/api/maps') return (await import('../api/maps/index')).default
-  if (pathname === '/api/maps/import') return (await import('../api/maps/import')).default
-  if (/^\/api\/maps\/[^/]+$/.test(pathname)) return (await import('../api/maps/[id]')).default
+  if (pathname === '/api/auth/signup') return (await import('../api/auth/signup.js')).default
+  if (pathname === '/api/auth/login') return (await import('../api/auth/login.js')).default
+  if (pathname === '/api/auth/logout') return (await import('../api/auth/logout.js')).default
+  if (pathname === '/api/auth/me') return (await import('../api/auth/me.js')).default
+  if (pathname === '/api/maps') return (await import('../api/maps/index.js')).default
+  if (pathname === '/api/maps/import') return (await import('../api/maps/import.js')).default
+  if (/^\/api\/maps\/[^/]+$/.test(pathname)) return (await import('../api/maps/[id].js')).default
   return null
 }
 

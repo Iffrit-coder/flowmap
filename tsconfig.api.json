@@ -7,8 +7,13 @@
     "types": ["node"],
     "skipLibCheck": true,
 
+    // Vercel transpiles these handlers file-by-file and runs them as ESM (the
+    // root package.json is `"type": "module"`), and Node's ESM resolver will
+    // not guess extensions. So every relative import here must be written with
+    // an explicit `.js` — `allowImportingTsExtensions` is deliberately off so
+    // a `.ts` import can't compile locally and then 404 the whole function in
+    // production. `tsx` resolves `.js` to the `.ts` source fine in dev.
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,

@@ -2,8 +2,8 @@ import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { promisify } from 'node:util'
 import { nanoid } from 'nanoid'
-import sql from './db'
-import { readSessionToken, setSessionCookie } from './http'
+import sql from './db.js'
+import { readSessionToken, setSessionCookie } from './http.js'
 
 const scrypt = promisify(scryptCb) as (password: string, salt: string, keylen: number) => Promise<Buffer>
 const SESSION_DAYS = 30

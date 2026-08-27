@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
-import { emptyStep } from './types'
-import type { MapDoc, StepData } from './types'
+import { emptyStep } from './types.js'
+import type { MapDoc, StepData } from './types.js'
 
 /**
  * A worked example rather than an empty canvas — a first-time visitor should be

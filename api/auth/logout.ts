@@ -1,7 +1,7 @@
 import type { ServerResponse } from 'node:http'
-import sql from '../_lib/db'
-import { clearSessionCookie, readSessionToken, sendJson } from '../_lib/http'
-import type { ApiRequest } from '../_lib/http'
+import sql from '../_lib/db.js'
+import { clearSessionCookie, readSessionToken, sendJson } from '../_lib/http.js'
+import type { ApiRequest } from '../_lib/http.js'
 
 export default async function handler(req: ApiRequest, res: ServerResponse) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })

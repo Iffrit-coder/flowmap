@@ -1,11 +1,11 @@
 import type { ServerResponse } from 'node:http'
 import { nanoid } from 'nanoid'
-import { getUserId } from '../_lib/auth'
-import sql from '../_lib/db'
-import { readJson, sendJson } from '../_lib/http'
-import type { ApiRequest } from '../_lib/http'
-import { toMapDoc } from '../_lib/maps'
-import type { MapDoc } from '../../src/types'
+import { getUserId } from '../_lib/auth.js'
+import sql from '../_lib/db.js'
+import { readJson, sendJson } from '../_lib/http.js'
+import type { ApiRequest } from '../_lib/http.js'
+import { toMapDoc } from '../_lib/maps.js'
+import type { MapDoc } from '../../src/types.js'
 
 export default async function handler(req: ApiRequest, res: ServerResponse) {
   const userId = await getUserId(req)

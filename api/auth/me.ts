@@ -1,8 +1,8 @@
 import type { ServerResponse } from 'node:http'
-import { getUserId } from '../_lib/auth'
-import sql from '../_lib/db'
-import { sendJson } from '../_lib/http'
-import type { ApiRequest } from '../_lib/http'
+import { getUserId } from '../_lib/auth.js'
+import sql from '../_lib/db.js'
+import { sendJson } from '../_lib/http.js'
+import type { ApiRequest } from '../_lib/http.js'
 
 export default async function handler(req: ApiRequest, res: ServerResponse) {
   const userId = await getUserId(req)
