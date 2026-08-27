@@ -14,21 +14,30 @@ export default async function handler(req: ApiRequest, res: ServerResponse) {
 
   const body = await readJson<{ maps?: Partial<MapDoc>[] }>(req)
   const incoming = Array.isArray(body.maps) ? body.maps : []
+  if (incoming.length === 0) return sendJson(res, 200, { maps: [] })
 
-  const imported: MapDoc[] = []
-  for (const doc of incoming) {
-    const id = nanoid(8)
-    const name = doc.name ?? 'Untitled process'
-    const nodes = doc.nodes ?? []
-    const edges = doc.edges ?? []
-    const pinned = doc.pinned ?? false
-    const updatedAt = new Date().toISOString()
-    await sql`
-      insert into maps (id, user_id, name, nodes, edges, pinned)
-      values (${id}, ${userId}, ${name}, ${JSON.stringify(nodes)}::jsonb, ${JSON.stringify(edges)}::jsonb, ${pinned})
-    `
-    imported.push({ version: 1, id, name, nodes: nodes as MapDoc['nodes'], edges: edges as MapDoc['edges'], pinned, updatedAt })
-  }
+  // Fresh ids on the way in, so re-importing a file — or importing someone
+  // else's export — never collides with what's already on the dashboard.
+  const imported: MapDoc[] = incoming.map((doc) => ({
+    version: 1,
+    id: nanoid(8),
+    name: doc.name ?? 'Untitled process',
+    nodes: (doc.nodes ?? []) as MapDoc['nodes'],
+    edges: (doc.edges ?? []) as MapDoc['edges'],
+    pinned: doc.pinned ?? false,
+    updatedAt: new Date().toISOString(),
+  }))
+
+  // One round trip for the whole batch, and all-or-nothing: a bulk import that
+  // half-lands would leave the user hand-reconciling which maps made it.
+  await sql.transaction(
+    imported.map(
+      (m) => sql`
+        insert into maps (id, user_id, name, nodes, edges, pinned)
+        values (${m.id}, ${userId}, ${m.name}, ${JSON.stringify(m.nodes)}::jsonb, ${JSON.stringify(m.edges)}::jsonb, ${m.pinned})
+      `,
+    ),
+  )
 
   sendJson(res, 200, { maps: imported })
 }

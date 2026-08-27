@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../authStore'
 import { downloadDoc, downloadLibrary } from '../download'
 import { findBackEdges, formatDuration, totalDuration } from '../graph'
+import { filesFromDrop, readImportFiles } from '../importFiles'
+import type { ImportFailure } from '../importFiles'
 import { useLibraryStore } from '../libraryStore'
-import type { Library, MapDoc } from '../types'
+import type { MapDoc } from '../types'
 
 function summarize(doc: MapDoc) {
   return {
@@ -139,16 +141,32 @@ function Card({ doc }: { doc: MapDoc }) {
   )
 }
 
+function plural(n: number, noun: string) {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`
+}
+
+type ImportNotice = {
+  imported: number
+  files: number
+  failures: ImportFailure[]
+  error?: string
+}
+
 export default function Dashboard() {
   const maps = useLibraryStore((s) => s.maps)
   const refresh = useLibraryStore((s) => s.refresh)
   const createMap = useLibraryStore((s) => s.createMap)
-  const importMap = useLibraryStore((s) => s.importMap)
   const importLibrary = useLibraryStore((s) => s.importLibrary)
   const email = useAuthStore((s) => s.email)
   const logout = useAuthStore((s) => s.logout)
   const fileInput = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [notice, setNotice] = useState<ImportNotice | null>(null)
+  // dragenter/dragleave fire for every child element the pointer crosses, so a
+  // depth counter is what keeps the overlay from flickering mid-drag.
+  const dragDepth = useRef(0)
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
     refresh()
@@ -168,29 +186,79 @@ export default function Dashboard() {
     downloadLibrary(maps)
   }
 
-  const handleImportFile = async (file: File) => {
+  const handleImportFiles = async (files: File[]) => {
+    if (files.length === 0) return
+    setNotice(null)
+    setImporting(true)
+    // Read failures are known before the request and must survive it, so that a
+    // request that then fails still reports the files that were unreadable.
+    let failures: ImportFailure[] = []
     try {
-      const parsed = JSON.parse(await file.text()) as Partial<Library> & Partial<MapDoc>
-      if (parsed.version !== 1) throw new Error('bad file')
-      if (Array.isArray(parsed.maps)) {
-        await importLibrary(parsed.maps)
-      } else if (Array.isArray(parsed.nodes)) {
-        window.location.hash = `#/map/${await importMap(parsed as MapDoc)}`
-      } else {
-        throw new Error('bad file')
+      const read = await readImportFiles(files)
+      failures = read.failures
+      if (read.maps.length === 0) {
+        setNotice({ imported: 0, files: 0, failures })
+        return
       }
-    } catch {
-      alert("That file isn't a flowmap export.")
+
+      // Importing a single map is still a "take me to it" gesture; a batch is
+      // not, so a bulk import stays on the dashboard with the results in view.
+      const lone = files.length === 1 && read.maps.length === 1 && failures.length === 0
+      const created = await importLibrary(read.maps)
+      if (lone) {
+        window.location.hash = `#/map/${created[0].id}`
+        return
+      }
+      setNotice({ imported: created.length, files: files.length - failures.length, failures })
+    } catch (err) {
+      setNotice({
+        imported: 0,
+        files: 0,
+        failures,
+        error: err instanceof Error ? err.message : 'Import failed.',
+      })
+    } finally {
+      setImporting(false)
     }
   }
 
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    dragDepth.current = 0
+    setDragging(false)
+    handleImportFiles(await filesFromDrop(e.dataTransfer))
+  }
+
   return (
-    <div className="dashboard">
+    <div
+      className="dashboard"
+      onDragEnter={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return
+        dragDepth.current += 1
+        setDragging(true)
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) e.preventDefault()
+      }}
+      onDragLeave={() => {
+        dragDepth.current -= 1
+        if (dragDepth.current <= 0) setDragging(false)
+      }}
+      onDrop={handleDrop}
+    >
+      {dragging && (
+        <div className="drop-overlay">
+          <div className="drop-overlay-inner">
+            <strong>Drop to import</strong>
+            <span>flowmap exports, or a folder of them</span>
+          </div>
+        </div>
+      )}
       <header className="dashboard-header">
         <h1>flowmap</h1>
         <div className="actions">
-          <button type="button" onClick={() => fileInput.current?.click()}>
-            Import
+          <button type="button" onClick={() => fileInput.current?.click()} disabled={importing}>
+            {importing ? 'Importing…' : 'Import'}
           </button>
           {maps.length > 0 && (
             <button type="button" onClick={handleExportAll}>
@@ -205,14 +273,43 @@ export default function Dashboard() {
           ref={fileInput}
           type="file"
           accept="application/json,.json"
+          multiple
           hidden
           onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) handleImportFile(file)
+            handleImportFiles(Array.from(e.target.files ?? []))
             e.target.value = ''
           }}
         />
       </header>
+
+      {notice && (
+        <div
+          className={`import-notice${notice.error || notice.imported === 0 ? ' bad' : ''}`}
+          role="status"
+        >
+          <div className="import-notice-body">
+            <strong>
+              {notice.error
+                ? notice.error
+                : notice.imported > 0
+                  ? `Imported ${plural(notice.imported, 'map')} from ${plural(notice.files, 'file')}.`
+                  : 'Nothing imported.'}
+            </strong>
+            {notice.failures.length > 0 && (
+              <ul className="import-notice-failures">
+                {notice.failures.map((f) => (
+                  <li key={f.name}>
+                    <code>{f.name}</code> {f.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <button type="button" aria-label="Dismiss" onClick={() => setNotice(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="dashboard-toolbar">
         <input

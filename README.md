@@ -58,9 +58,12 @@ database as local dev, or a separate one with `db/schema.sql` applied.
   sign in from.
 - **Dashboard** — the landing page. **Search** filters by name — handy once you
   have more than a screenful of maps. **+ New map** opens a blank one; **Import**
-  adds a `.flowmap.json` file to the collection, or merges a whole
-  `flowmap-library.json` bundle in (see below). **Export all** downloads every
-  map on the dashboard as one bundle. Each card can be pinned, renamed
+  takes any number of files at once — single `.flowmap.json` maps, whole
+  `flowmap-library.json` bundles, or a mix — and you can drag them onto the
+  dashboard instead, including a folder, which is walked recursively. Files
+  that aren't flowmap exports are listed by name and skipped rather than
+  failing the batch. **Export all** downloads every map on the dashboard as one
+  bundle. Each card can be pinned, renamed
   (double-click the title, or the row action), duplicated, exported, or
   deleted, without opening it.
 - **Steps** — double-click empty canvas, or hit **+ Step**. Select a step to edit

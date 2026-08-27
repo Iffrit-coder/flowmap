@@ -638,3 +638,83 @@ textarea:focus {
   border-color: transparent;
   text-decoration: underline;
 }
+
+/* Bulk import: drop target and result summary */
+
+.dashboard {
+  position: relative;
+}
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(79 70 229 / 0.08);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.drop-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 32px 48px;
+  text-align: center;
+  background: var(--panel);
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.drop-overlay-inner strong {
+  font-size: 16px;
+}
+
+.drop-overlay-inner span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.import-notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  font-size: 13px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--s-done);
+  border-radius: 8px;
+}
+
+.import-notice.bad {
+  border-left-color: var(--danger);
+}
+
+.import-notice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.import-notice-failures {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.import-notice-failures code {
+  color: var(--text);
+  word-break: break-all;
+}
+
+.import-notice button {
+  flex: none;
+}
