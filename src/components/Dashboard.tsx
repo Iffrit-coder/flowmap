@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import * as api from '../api'
 import { useAuthStore } from '../authStore'
 import { downloadDoc, downloadLibrary } from '../download'
 import { findBackEdges, formatDuration, totalDuration } from '../graph'
@@ -158,7 +159,9 @@ export default function Dashboard() {
   const createMap = useLibraryStore((s) => s.createMap)
   const importLibrary = useLibraryStore((s) => s.importLibrary)
   const email = useAuthStore((s) => s.email)
+  const emailVerified = useAuthStore((s) => s.emailVerified)
   const logout = useAuthStore((s) => s.logout)
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle')
   const fileInput = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [importing, setImporting] = useState(false)
@@ -281,6 +284,39 @@ export default function Dashboard() {
           }}
         />
       </header>
+
+      {!emailVerified && (
+        <div className="import-notice bad" role="status">
+          <div className="import-notice-body">
+            <strong>Confirm your email address.</strong>
+            <span>
+              We sent a link to {email}. Confirming it is what lets you recover this account if
+              you forget your password.
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={resendState === 'sending' || resendState === 'sent'}
+            onClick={async () => {
+              setResendState('sending')
+              try {
+                await api.resendVerification()
+                setResendState('sent')
+              } catch {
+                setResendState('failed')
+              }
+            }}
+          >
+            {resendState === 'sent'
+              ? 'Sent'
+              : resendState === 'sending'
+                ? 'Sending…'
+                : resendState === 'failed'
+                  ? 'Try again'
+                  : 'Resend'}
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div

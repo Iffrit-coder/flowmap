@@ -2,6 +2,8 @@ import type { MapDoc } from './types'
 
 class ApiError extends Error {}
 
+export type Account = { email: string; emailVerified: boolean }
+
 /** A response that isn't JSON didn't come from our handlers at all — it's a
  * static host's 404 page or a platform error page, which means the app is
  * deployed somewhere `/api` doesn't exist. Say that, rather than surfacing a
@@ -36,11 +38,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export function signup(email: string, password: string): Promise<{ email: string }> {
+export function signup(email: string, password: string): Promise<Account> {
   return request('/auth/signup', { method: 'POST', body: JSON.stringify({ email, password }) })
 }
 
-export function login(email: string, password: string): Promise<{ email: string }> {
+export function login(email: string, password: string): Promise<Account> {
   return request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
 }
 
@@ -48,8 +50,24 @@ export function logout(): Promise<{ ok: true }> {
   return request('/auth/logout', { method: 'POST' })
 }
 
-export function me(): Promise<{ email: string }> {
+export function me(): Promise<Account> {
   return request('/auth/me')
+}
+
+export function forgotPassword(email: string): Promise<{ ok: true; message: string }> {
+  return request('/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) })
+}
+
+export function resetPassword(token: string, password: string): Promise<{ ok: true }> {
+  return request('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) })
+}
+
+export function verifyEmail(token: string): Promise<{ ok: true }> {
+  return request('/auth/verify', { method: 'POST', body: JSON.stringify({ token }) })
+}
+
+export function resendVerification(): Promise<{ ok: true; alreadyVerified?: boolean }> {
+  return request('/auth/resend-verification', { method: 'POST' })
 }
 
 export function listMaps(): Promise<{ maps: MapDoc[] }> {

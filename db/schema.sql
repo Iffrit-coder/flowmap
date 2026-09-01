@@ -45,3 +45,22 @@ create table if not exists rate_limits (
 );
 
 create index if not exists rate_limits_window_idx on rate_limits (window_start);
+
+-- Email verification state. Nullable rather than a boolean default so accounts
+-- created before verification existed are distinguishable from unverified ones.
+alter table users add column if not exists email_verified_at timestamptz;
+
+-- One table for both reset and verification links. Only a SHA-256 of the token
+-- is stored: the raw value exists in the user's inbox and nowhere else, so a
+-- database leak yields no usable link. Single-use is enforced by deleting the
+-- row on consumption.
+create table if not exists auth_tokens (
+  token_hash text primary key,
+  user_id    text not null references users (id) on delete cascade,
+  purpose    text not null check (purpose in ('reset', 'verify')),
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists auth_tokens_user_idx on auth_tokens (user_id, purpose);
+create index if not exists auth_tokens_expiry_idx on auth_tokens (expires_at);

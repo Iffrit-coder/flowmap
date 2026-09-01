@@ -2,7 +2,7 @@ import type { ServerResponse } from 'node:http'
 import { nanoid } from 'nanoid'
 import { getUserId } from '../_lib/auth.js'
 import sql from '../_lib/db.js'
-import { readJson, sendJson } from '../_lib/http.js'
+import { readJson, sendJson, withErrors } from '../_lib/http.js'
 import type { ApiRequest } from '../_lib/http.js'
 import { InvalidMap, sanitizeMapInput } from '../../src/mapSchema.js'
 import type { MapDoc } from '../../src/types.js'
@@ -11,7 +11,7 @@ import type { MapDoc } from '../../src/types.js'
  * is not the thing being trusted here. */
 const MAX_PER_REQUEST = 50
 
-export default async function handler(req: ApiRequest, res: ServerResponse) {
+export default withErrors('maps/import', async (req: ApiRequest, res: ServerResponse) => {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
 
   const userId = await getUserId(req)
@@ -56,4 +56,4 @@ export default async function handler(req: ApiRequest, res: ServerResponse) {
   )
 
   sendJson(res, 200, { maps: imported })
-}
+})

@@ -2,16 +2,18 @@ import type { ServerResponse } from 'node:http'
 import { nanoid } from 'nanoid'
 import { createSession, hashPassword } from '../_lib/auth.js'
 import sql from '../_lib/db.js'
-import { readJson, sendJson } from '../_lib/http.js'
+import { readJson, sendJson, withErrors } from '../_lib/http.js'
 import type { ApiRequest } from '../_lib/http.js'
 import { checkPassword } from '../_lib/password.js'
 import { clientIp, hit } from '../_lib/rateLimit.js'
+import { appUrl, deliver, verifyEmail } from '../_lib/email.js'
+import { issue } from '../_lib/tokens.js'
 import { demoDoc } from '../../src/demoMap.js'
 
 const WINDOW = 60 * 60
 const PER_IP = 5
 
-export default async function handler(req: ApiRequest, res: ServerResponse) {
+export default withErrors('auth/signup', async (req: ApiRequest, res: ServerResponse) => {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
 
   const { email, password } = await readJson<{ email?: string; password?: string }>(req)
@@ -50,6 +52,11 @@ export default async function handler(req: ApiRequest, res: ServerResponse) {
     values (${demo.id}, ${id}, ${demo.name}, ${JSON.stringify(demo.nodes)}::jsonb, ${JSON.stringify(demo.edges)}::jsonb, false)
   `
 
+  // Awaited, not fired and forgotten: the runtime may freeze this function the
+  // moment the response ends, which would cancel an in-flight send.
+  const token = await issue(id, 'verify')
+  await deliver({ to: normalizedEmail, ...verifyEmail(`${appUrl()}/#/verify/${token}`) })
+
   await createSession(id, res)
-  sendJson(res, 200, { email: normalizedEmail })
-}
+  sendJson(res, 200, { email: normalizedEmail, emailVerified: false })
+})

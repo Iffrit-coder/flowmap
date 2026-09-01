@@ -718,3 +718,19 @@ textarea:focus {
 .import-notice button {
   flex: none;
 }
+
+.auth-hint {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.auth-notice {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--s-done) 10%, transparent);
+  border-left: 3px solid var(--s-done);
+  border-radius: 6px;
+}

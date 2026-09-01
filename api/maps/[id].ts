@@ -1,12 +1,12 @@
 import type { ServerResponse } from 'node:http'
 import { getUserId } from '../_lib/auth.js'
 import sql from '../_lib/db.js'
-import { readJson, sendJson } from '../_lib/http.js'
+import { readJson, sendJson, withErrors } from '../_lib/http.js'
 import type { ApiRequest } from '../_lib/http.js'
 import { toMapDoc } from '../_lib/maps.js'
 import { InvalidMap, sanitizeMapInput } from '../../src/mapSchema.js'
 
-export default async function handler(req: ApiRequest, res: ServerResponse) {
+export default withErrors('maps/[id]', async (req: ApiRequest, res: ServerResponse) => {
   const userId = await getUserId(req)
   if (!userId) return sendJson(res, 401, { error: 'not signed in' })
 
@@ -64,4 +64,4 @@ export default async function handler(req: ApiRequest, res: ServerResponse) {
   }
 
   sendJson(res, 405, { error: 'method not allowed' })
-}
+})

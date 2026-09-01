@@ -15,6 +15,11 @@ async function resolveHandler(pathname: string): Promise<Handler | null> {
   if (pathname === '/api/auth/login') return (await import('../api/auth/login.js')).default
   if (pathname === '/api/auth/logout') return (await import('../api/auth/logout.js')).default
   if (pathname === '/api/auth/me') return (await import('../api/auth/me.js')).default
+  if (pathname === '/api/auth/forgot') return (await import('../api/auth/forgot.js')).default
+  if (pathname === '/api/auth/reset') return (await import('../api/auth/reset.js')).default
+  if (pathname === '/api/auth/verify') return (await import('../api/auth/verify.js')).default
+  if (pathname === '/api/auth/resend-verification')
+    return (await import('../api/auth/resend-verification.js')).default
   if (pathname === '/api/maps') return (await import('../api/maps/index.js')).default
   if (pathname === '/api/maps/import') return (await import('../api/maps/import.js')).default
   if (/^\/api\/maps\/[^/]+$/.test(pathname)) return (await import('../api/maps/[id].js')).default

@@ -48,8 +48,44 @@ npx vercel env add DATABASE_URL production
 npx vercel --prod
 ```
 
-`DATABASE_URL` is the only environment variable. Point it at the same Neon
-database as local dev, or a separate one with `db/schema.sql` applied.
+### Environment
+
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Neon connection string. |
+| `RESEND_API_KEY` | no | Enables outbound email. Without it, password reset and verification links are generated but never delivered — the endpoints still behave identically so they give nothing away. |
+| `AUTH_EMAIL_FROM` | no | Sender address, e.g. `flowmap <hello@yourdomain>`. Defaults to Resend's shared `onboarding@resend.dev`, which **only delivers to the address that owns the Resend account** — enough to test, not enough to mail anyone else. Sending to other people needs a verified domain. |
+| `APP_URL` | no | Origin used to build emailed links. Read from configuration rather than the request's `Host` header, which is attacker-controlled and would otherwise let someone put their own domain into a real reset email. |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION` | no | `true` blocks sign-in until the address is confirmed. Leave it off until email is confirmed working, or every account locks out. |
+| `ALERT_EMAIL` | no | Address to notify when a handler throws. Capped at 4 emails/hour. |
+
+## Backups
+
+Neon's free tier keeps **6 hours** of point-in-time history, so anything noticed
+the next morning is already gone. `.github/workflows/backup.yml` runs nightly,
+dumps the durable tables, encrypts the dump, and keeps it as an artifact for 90
+days. It needs two repository secrets: `DATABASE_URL` and `BACKUP_PASSPHRASE`.
+
+The encryption is not optional. This repository is public, and artifacts on a
+public repository can be downloaded by anyone who can see the Actions tab, while
+the dump contains every user's password hash. The workflow fails rather than
+upload a plaintext dump if the passphrase is missing.
+
+To restore:
+
+```bash
+gpg --decrypt backup-YYYY-MM-DD.json.gpg > backup.json
+DATABASE_URL=... node scripts/restore.mjs backup.json
+```
+
+`restore.mjs` refuses to run against a database that already holds users unless
+given `--force`, since the expensive mistake is pointing a restore at the live
+database rather than at an empty one. Rows are upserted by primary key, so a
+`--force` run repairs missing rows instead of duplicating them.
+
+Backups are only real once a restore has been rehearsed. This one was: dumped
+from production, restored into a throwaway Neon branch that had been emptied
+first, and checked row for row.
 
 ## Using it
 
@@ -134,10 +170,17 @@ of stored, strings and counts are bounded, and edges pointing at steps that
 don't exist are rejected. Responses carry a strict CSP, `frame-ancestors 'none'`,
 `nosniff`, and a referrer policy; `/api` responses are `no-store`.
 
-Known gaps, deliberately: there is **no sharing** — a map belongs to exactly one
+Password reset and email verification run on single-use tokens: 32 random bytes,
+stored only as a SHA-256 hash, so a database leak yields no usable link. The raw
+token travels in the URL *fragment*, which browsers never send to a server,
+keeping it out of access logs and `Referer` headers. Resetting a password
+deletes every session for that account — whoever prompted the reset may be
+holding a stolen one, so it has to end them, not just add a new way in.
+
+Known gap, deliberately: there is **no sharing** — a map belongs to exactly one
 account, so there is no way to grant anyone else access short of sharing
-credentials. There is no password reset and no email verification, so sign-up
-still discloses whether an address is registered.
+credentials. Sign-up also still discloses whether an address is registered; the
+per-IP cap is what keeps harvesting expensive.
 
 ## Built with
 

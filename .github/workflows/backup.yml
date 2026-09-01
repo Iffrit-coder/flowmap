@@ -1,0 +1,63 @@
+name: Nightly backup
+
+# Neon's free tier keeps only 6 hours of point-in-time history, so anything
+# noticed the next morning is already unrecoverable from Neon alone. This is the
+# off-site copy that covers that gap — and it survives losing the Neon account,
+# which a Neon-side snapshot would not.
+on:
+  schedule:
+    # 07:10 UTC — a few minutes past the hour, since scheduled workflows queue
+    # heavily on the hour and can be dropped entirely under load.
+    - cron: '10 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci
+
+      - name: Dump the database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/backup.mjs --out backup.json
+
+      # This repository is public, and artifacts on a public repository can be
+      # downloaded by anyone who can see the Actions tab. The dump contains
+      # every user's password hash, so it is encrypted before it is ever written
+      # anywhere durable — the plaintext exists only inside this runner.
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::BACKUP_PASSPHRASE is not set — refusing to upload an unencrypted dump."
+            exit 1
+          fi
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+              --passphrase "$BACKUP_PASSPHRASE" \
+              --output "backup-$(date -u +%Y-%m-%d).json.gpg" backup.json
+          rm -f backup.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flowmap-backup-${{ github.run_id }}
+          path: backup-*.json.gpg
+          retention-days: 90
+
+      - name: Summary
+        run: |
+          echo "Encrypted backup uploaded. To restore:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo 'gpg --decrypt backup-YYYY-MM-DD.json.gpg > backup.json' >> $GITHUB_STEP_SUMMARY
+          echo 'DATABASE_URL=... node scripts/restore.mjs backup.json' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

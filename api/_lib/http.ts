@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { reportError } from './alert.js'
 
 /** Vercel's Node runtime and our local dev server both attach `query`; some
  * bodies arrive pre-parsed (Vercel) and some don't (local dev), so both are
@@ -50,4 +51,22 @@ export function clearSessionCookie(res: ServerResponse): void {
 
 export function readSessionToken(req: IncomingMessage): string | undefined {
   return parseCookies(req)[COOKIE_NAME]
+}
+
+export type Handler = (req: ApiRequest, res: ServerResponse) => Promise<void> | void
+
+/** Wraps a handler so a thrown error becomes a logged, alerted, JSON 500.
+ *
+ * Without this the platform serves its own HTML error page, which the client
+ * cannot parse and therefore reports as "the backend is missing" — the wrong
+ * diagnosis for what is actually a crash in one handler. */
+export function withErrors(context: string, handler: Handler): Handler {
+  return async (req, res) => {
+    try {
+      await handler(req, res)
+    } catch (err) {
+      await reportError(context, err, req)
+      if (!res.headersSent) sendJson(res, 500, { error: 'Something went wrong on our end.' })
+    }
+  }
 }
