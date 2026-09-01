@@ -2,7 +2,7 @@
   "name": "flowmap",
   "private": true,
   "version": "0.1.0",
-  "description": "Map how a process actually works — steps, owners, durations, and the loops where it doubles back.",
+  "description": "Map how a process actually works \u2014 steps, owners, durations, and the loops where it doubles back.",
   "license": "MIT",
   "author": "Francisco Apraiz",
   "repository": {
@@ -12,9 +12,10 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"tsx watch scripts/dev-api-server.ts\"",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/check-esm-imports.mjs && tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:esm": "node scripts/check-esm-imports.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",

@@ -1,5 +1,5 @@
-import { STATUSES } from './types'
-import type { FlowEdge, MapDoc, Status, StepNode } from './types'
+import { STATUSES } from './types.js'
+import type { FlowEdge, MapDoc, Status, StepNode } from './types.js'
 
 /** Ceilings chosen to be far above any real process map while still bounding
  * what one account can push into the database. A map that trips these is a
