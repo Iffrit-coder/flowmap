@@ -1,22 +1,39 @@
+import type { ServerResponse } from 'node:http'
 import { nanoid } from 'nanoid'
 import { createSession, hashPassword } from '../_lib/auth.js'
 import sql from '../_lib/db.js'
 import { readJson, sendJson } from '../_lib/http.js'
 import type { ApiRequest } from '../_lib/http.js'
+import { checkPassword } from '../_lib/password.js'
+import { clientIp, hit } from '../_lib/rateLimit.js'
 import { demoDoc } from '../../src/demoMap.js'
-import type { ServerResponse } from 'node:http'
+
+const WINDOW = 60 * 60
+const PER_IP = 5
 
 export default async function handler(req: ApiRequest, res: ServerResponse) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
 
   const { email, password } = await readJson<{ email?: string; password?: string }>(req)
   const normalizedEmail = (email ?? '').trim().toLowerCase()
-  if (!normalizedEmail || !normalizedEmail.includes('@')) {
+
+  // Also the brake on address-harvesting: this endpoint still answers "that
+  // email is taken", which is only tolerable while guesses are this expensive.
+  // Removing the tell entirely needs email verification, which doesn't exist yet.
+  const ip = await hit({ key: `signup:ip:${clientIp(req)}`, max: PER_IP, windowSeconds: WINDOW })
+  if (ip.limited) {
+    res.setHeader('Retry-After', String(ip.retryAfter))
+    return sendJson(res, 429, {
+      error: `Too many sign-up attempts. Try again in ${Math.ceil(ip.retryAfter / 60)} minutes.`,
+    })
+  }
+
+  if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254) {
     return sendJson(res, 400, { error: 'Enter a valid email.' })
   }
-  if (!password || password.length < 8) {
-    return sendJson(res, 400, { error: 'Password must be at least 8 characters.' })
-  }
+
+  const problem = await checkPassword(password ?? '', normalizedEmail)
+  if (problem) return sendJson(res, 400, { error: problem })
 
   const existing = await sql`select id from users where email = ${normalizedEmail}`
   if (existing.length > 0) {
@@ -24,7 +41,7 @@ export default async function handler(req: ApiRequest, res: ServerResponse) {
   }
 
   const id = nanoid(12)
-  const passwordHash = await hashPassword(password)
+  const passwordHash = await hashPassword(password as string)
   await sql`insert into users (id, email, password_hash) values (${id}, ${normalizedEmail}, ${passwordHash})`
 
   const demo = demoDoc()

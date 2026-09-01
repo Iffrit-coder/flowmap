@@ -112,6 +112,33 @@ along for a bundle), so re-importing a file — or importing someone else's
 export — never collides with what's already on your dashboard. The saved shape
 is a plain serializable `MapDoc` ([src/types.ts](src/types.ts)).
 
+## Security
+
+Passwords must be at least 10 characters and are checked against
+[Have I Been Pwned](https://haveibeenpwned.com/Passwords) by SHA-1 range query —
+five hex characters go out, the comparison happens locally, the password itself
+never leaves the server. That check fails open, so a length floor and a common
+-password list still apply if the service is unreachable.
+
+Sign-in is throttled per email (10 per 15 minutes) and per IP (30 per 15
+minutes); sign-up is throttled per IP (5 per hour). Counters live in
+`rate_limits` as fixed windows, because functions share no memory between
+invocations. A successful sign-in clears that email's counter. Login runs the
+password hash even for addresses with no account, so response time doesn't
+reveal who is registered.
+
+Everything a client writes to a map goes through
+[`sanitizeMapInput`](src/mapSchema.ts), which rebuilds the document field by
+field rather than validating in place — unknown properties are dropped instead
+of stored, strings and counts are bounded, and edges pointing at steps that
+don't exist are rejected. Responses carry a strict CSP, `frame-ancestors 'none'`,
+`nosniff`, and a referrer policy; `/api` responses are `no-store`.
+
+Known gaps, deliberately: there is **no sharing** — a map belongs to exactly one
+account, so there is no way to grant anyone else access short of sharing
+credentials. There is no password reset and no email verification, so sign-up
+still discloses whether an address is registered.
+
 ## Built with
 
 [React Flow](https://reactflow.dev) for the canvas, Zustand for state, Vite +

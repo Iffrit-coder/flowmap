@@ -3,18 +3,47 @@ import { createSession, verifyPassword } from '../_lib/auth.js'
 import sql from '../_lib/db.js'
 import { readJson, sendJson } from '../_lib/http.js'
 import type { ApiRequest } from '../_lib/http.js'
+import { clientIp, hit, reset } from '../_lib/rateLimit.js'
+
+const WINDOW = 15 * 60
+// Per-email is the account-takeover defence; per-IP catches the same attacker
+// spraying one password across many accounts, which per-email would never see.
+const PER_EMAIL = 10
+const PER_IP = 30
+
+/** A scrypt verification against a throwaway hash, so a login for an address
+ * with no account costs the same as one for an address with an account.
+ * Without it, response time alone reveals which emails are registered. */
+const DECOY_HASH =
+  '00000000000000000000000000000000:' +
+  '0'.repeat(128)
 
 export default async function handler(req: ApiRequest, res: ServerResponse) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
 
   const { email, password } = await readJson<{ email?: string; password?: string }>(req)
   const normalizedEmail = (email ?? '').trim().toLowerCase()
+  const emailKey = `login:email:${normalizedEmail}`
+
+  const ip = await hit({ key: `login:ip:${clientIp(req)}`, max: PER_IP, windowSeconds: WINDOW })
+  const perEmail = await hit({ key: emailKey, max: PER_EMAIL, windowSeconds: WINDOW })
+  if (ip.limited || perEmail.limited) {
+    const retryAfter = Math.max(ip.retryAfter, perEmail.retryAfter)
+    res.setHeader('Retry-After', String(retryAfter))
+    return sendJson(res, 429, {
+      error: `Too many sign-in attempts. Try again in ${Math.ceil(retryAfter / 60)} minutes.`,
+    })
+  }
 
   const rows = await sql`select id, password_hash from users where email = ${normalizedEmail}`
-  if (rows.length === 0 || !(await verifyPassword(password ?? '', rows[0].password_hash as string))) {
+  const stored = (rows[0]?.password_hash as string | undefined) ?? DECOY_HASH
+  const ok = await verifyPassword(password ?? '', stored)
+
+  if (rows.length === 0 || !ok) {
     return sendJson(res, 401, { error: 'Incorrect email or password.' })
   }
 
+  await reset(emailKey)
   await createSession(rows[0].id as string, res)
   sendJson(res, 200, { email: normalizedEmail })
 }

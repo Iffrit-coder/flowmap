@@ -33,3 +33,15 @@ create table if not exists maps (
 );
 
 create index if not exists maps_user_id_idx on maps (user_id);
+
+-- Fixed-window counters for auth throttling. Keyed by 'login:email:<addr>',
+-- 'login:ip:<addr>', or 'signup:ip:<addr>'; a row whose window has elapsed is
+-- reset in place, so the table stays one row per active key rather than one row
+-- per attempt.
+create table if not exists rate_limits (
+  key          text primary key,
+  count        integer not null default 0,
+  window_start timestamptz not null default now()
+);
+
+create index if not exists rate_limits_window_idx on rate_limits (window_start);
