@@ -172,7 +172,9 @@ export default function Dashboard() {
   const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
-    refresh()
+    // A 401 here already routes back to sign-in via the store; anything else is
+    // swallowed rather than left as an unhandled rejection.
+    refresh().catch(() => {})
   }, [refresh])
 
   const matching = query.trim()

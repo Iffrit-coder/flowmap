@@ -4,6 +4,17 @@ class ApiError extends Error {}
 
 export type Account = { email: string; emailVerified: boolean }
 
+/** Any request can be the one that discovers the session is gone — it expires on
+ * its own schedule, and a password reset elsewhere revokes it outright. Rather
+ * than have every caller check, the store registers here and gets told once.
+ * Registered as a callback because the store imports this module, not the
+ * reverse. */
+let onUnauthorized: (() => void) | null = null
+
+export function setUnauthorizedHandler(fn: () => void): void {
+  onUnauthorized = fn
+}
+
 /** A response that isn't JSON didn't come from our handlers at all — it's a
  * static host's 404 page or a platform error page, which means the app is
  * deployed somewhere `/api` doesn't exist. Say that, rather than surfacing a
@@ -32,6 +43,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw unreachable(res.status)
   }
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.()
     const body = await res.json().catch(() => ({}))
     throw new ApiError((body as { error?: string }).error ?? `Request failed (${res.status})`)
   }

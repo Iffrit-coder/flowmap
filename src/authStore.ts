@@ -57,3 +57,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   markVerified: () => set({ emailVerified: true }),
 }))
+
+// A session that dies mid-use should return the user to the sign-in screen
+// rather than leave a dashboard of stale maps that no longer load.
+api.setUnauthorizedHandler(() => {
+  const { status } = useAuthStore.getState()
+  if (status === 'signed-in') {
+    useAuthStore.setState({ status: 'signed-out', email: null, emailVerified: false })
+  }
+})

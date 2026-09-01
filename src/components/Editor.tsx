@@ -39,9 +39,16 @@ function EditorCanvas({ mapId }: { mapId: string }) {
   // editor serve any map the dashboard links it to.
   useEffect(() => {
     let cancelled = false
-    api.listMaps().then(({ maps }) => {
+    api.listMaps().catch(() => null).then((result) => {
       if (cancelled) return
-      const doc = maps.find((m) => m.id === mapId)
+      // Null means the load failed — a 401 has already routed back to sign-in,
+      // and anything else should return to the dashboard rather than sit on an
+      // editor with no document behind it.
+      if (!result) {
+        window.location.hash = ''
+        return
+      }
+      const doc = result.maps.find((m) => m.id === mapId)
       if (!doc) {
         window.location.hash = ''
         return
