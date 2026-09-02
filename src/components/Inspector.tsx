@@ -1,6 +1,6 @@
 import { STATUSES, STATUS_LABELS } from '../types'
 import type { Status } from '../types'
-import { useStore } from '../store'
+import { useCanEdit, useStore } from '../store'
 
 export default function Inspector() {
   const selectedId = useStore((s) => s.selectedId)
@@ -9,6 +9,7 @@ export default function Inspector() {
   const updateStep = useStore((s) => s.updateStep)
   const updateEdgeLabel = useStore((s) => s.updateEdgeLabel)
   const deleteStep = useStore((s) => s.deleteStep)
+  const canEdit = useCanEdit()
 
   if (edge && !selectedId) {
     return (
@@ -35,13 +36,25 @@ export default function Inspector() {
       <aside className="inspector empty">
         <h2>Nothing selected</h2>
         <ul className="hint-list">
-          <li>Double-click the canvas to add a step.</li>
-          <li>Drag right edge → left edge to connect two steps.</li>
-          <li>
-            Drag from a step's <strong>top</strong> dot back to an earlier step
-            to create a loop.
-          </li>
-          <li>Select a step to edit its details here.</li>
+          {/* The editing hints describe gestures a viewer cannot perform, so
+              they'd read as broken rather than helpful. */}
+          {canEdit ? (
+            <>
+              <li>Double-click the canvas to add a step.</li>
+              <li>Drag right edge → left edge to connect two steps.</li>
+              <li>
+                Drag from a step's <strong>top</strong> dot back to an earlier step
+                to create a loop.
+              </li>
+              <li>Select a step to edit its details here.</li>
+            </>
+          ) : (
+            <>
+              <li>Select a step to see its owner, duration, and notes.</li>
+              <li>Dashed arcs curving backwards are loops — the process repeating.</li>
+              <li>You have view-only access to this map.</li>
+            </>
+          )}
         </ul>
       </aside>
     )
@@ -67,6 +80,7 @@ export default function Inspector() {
         <div className="status-row">
           {STATUSES.map((status: Status) => (
             <button
+              disabled={!canEdit}
               key={status}
               type="button"
               className={`chip status-${status}${
@@ -110,7 +124,12 @@ export default function Inspector() {
         />
       </label>
 
-      <button type="button" className="danger" onClick={() => deleteStep(node.id)}>
+      <button
+        type="button"
+        className="danger"
+        disabled={!canEdit}
+        onClick={() => deleteStep(node.id)}
+      >
         Delete step
       </button>
     </aside>

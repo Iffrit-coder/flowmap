@@ -40,6 +40,22 @@ export type MapDoc = {
   updatedAt: string
 }
 
+/** What a requester may do with a map. `owner` is implicit in the map row;
+ * the other two are granted, to an account or to whoever holds a link. */
+export type Role = 'owner' | 'editor' | 'viewer'
+
+/** A map as the server hands it back: the document, plus the row's revision
+ * counter and how the requester came to be reading it.
+ *
+ * `rev` is deliberately not `version` — that name is already taken by the
+ * document *format*, and conflating the two would make a stale-write bug very
+ * hard to see. */
+export type MapRecord = MapDoc & {
+  rev: number
+  role: Role
+  ownerEmail?: string | null
+}
+
 /** A bulk export/import bundle — the whole dashboard as one file. */
 export type Library = {
   version: 1

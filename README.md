@@ -110,6 +110,12 @@ first, and checked row for row.
   dot. It renders as a dashed arc over the row, labeled with the repeat condition
   ("if changes requested").
 - **Rollup** — the header keeps a running count of steps, loops, and total time.
+- **Sharing** — **Share** on a map you own hands out access two ways. A *link*
+  works for anyone you send it to, with no account and no sign-in; a *person* is
+  named by email, needs a flowmap account, and can be removed individually. Both
+  come as **can view** or **can edit**, and both are revocable at any time. Maps
+  shared with you appear under **Shared with me**, and a view-only map opens with
+  its editing controls gone.
 
 ## The one interesting bit
 
@@ -140,6 +146,15 @@ Routing between the dashboard and an open map is a `#/map/<id>` hash, not a real
 path — no server-side rewrite needed for it. The editor autosaves into the map's
 row on a debounce, flushed synchronously (via `fetch(..., { keepalive: true })`)
 on navigating away or closing the tab.
+
+Saves carry the revision they were based on, and the update is conditional on
+it. A write built on a stale revision is refused with `409` and the current
+document, rather than applied — without that, autosave sending the whole
+document every 400 ms means the last writer silently erases the other, which
+happened with two browser tabs long before sharing existed. The editor stops
+autosaving on a conflict and asks which version to keep; there is no automatic
+merge, because interleaving two people's edits to a graph produces a document
+neither of them wrote.
 
 **Export** / **Import** move a single map as a `.flowmap.json` file; **Export
 all** / **Import** move the whole dashboard as one `flowmap-library.json`
@@ -177,10 +192,31 @@ keeping it out of access logs and `Referer` headers. Resetting a password
 deletes every session for that account — whoever prompted the reset may be
 holding a stolen one, so it has to end them, not just add a new way in.
 
-Known gap, deliberately: there is **no sharing** — a map belongs to exactly one
-account, so there is no way to grant anyone else access short of sharing
-credentials. Sign-up also still discloses whether an address is registered; the
-per-IP cap is what keeps harvesting expensive.
+Sharing resolves through one function, [`resolveAccess`](api/_lib/access.ts),
+rather than a `where user_id = …` repeated per handler — so there is a single
+place to audit. It checks ownership, then a named grant, then a link token, in
+that order: someone who owns a map they were also sent a view link for still
+edits it, rather than being demoted by the weaker credential they happen to
+carry. Link tokens are 32 random bytes stored only as a SHA-256, scoped to one
+map, and revocable; the raw token is shown once at creation and never again.
+The share URL puts it in the fragment, which browsers never transmit, keeping it
+out of server logs and `Referer` headers.
+
+A map is fetched from a link with no session at all, so `GET /api/maps/:id` and
+`/api/shared` are the only endpoints an unauthenticated stranger reaches — both
+are rate-limited per IP, and both answer `404` rather than `403` for maps you
+cannot see, since confirming a map exists is itself a disclosure.
+
+Disabled controls are a courtesy, not the control: a viewer who opens devtools
+can still call `PUT`, and the server refuses it. Editors deliberately cannot
+delete or re-share, so granting edit access can never cost you the map.
+
+Known gaps, deliberately: sharing by email discloses whether that address has an
+account — removing the tell needs pending invites delivered by email, which needs
+a verified sending domain. And this is **not** a real-time collaborative editor:
+concurrent edits are detected, not merged. Two people on one map is safe but not
+smooth, and making it smooth means CRDTs plus a persistent socket server, which
+Vercel functions cannot host.
 
 ## Built with
 

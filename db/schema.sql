@@ -64,3 +64,39 @@ create table if not exists auth_tokens (
 
 create index if not exists auth_tokens_user_idx on auth_tokens (user_id, purpose);
 create index if not exists auth_tokens_expiry_idx on auth_tokens (expires_at);
+
+-- Optimistic concurrency. Autosave sends the whole document, so without a
+-- version to write against, two editors (or two tabs) silently overwrite each
+-- other. A write states the version it was based on; a stale one is refused.
+alter table maps add column if not exists version integer not null default 0;
+
+-- Capability links: anyone holding the raw token has the stated role on that
+-- one map. Only the SHA-256 is stored, so a database leak yields no working
+-- link. Unlike auth_tokens these are reusable, hence a separate table.
+create table if not exists map_links (
+  token_hash   text primary key,
+  map_id       text not null references maps (id) on delete cascade,
+  role         text not null check (role in ('viewer', 'editor')),
+  created_by   text not null references users (id) on delete cascade,
+  label        text,
+  created_at   timestamptz not null default now(),
+  expires_at   timestamptz,
+  -- Soft revocation: keeps a record that the link existed and was withdrawn.
+  revoked_at   timestamptz,
+  last_used_at timestamptz
+);
+
+create index if not exists map_links_map_idx on map_links (map_id);
+
+-- Named grants: access tied to an account, revocable per person. The primary
+-- key is what stops one person holding two roles on the same map.
+create table if not exists map_grants (
+  map_id     text not null references maps (id) on delete cascade,
+  user_id    text not null references users (id) on delete cascade,
+  role       text not null check (role in ('viewer', 'editor')),
+  granted_by text not null references users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (map_id, user_id)
+);
+
+create index if not exists map_grants_user_idx on map_grants (user_id);

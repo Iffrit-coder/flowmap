@@ -6,9 +6,9 @@ import { findBackEdges, formatDuration, totalDuration } from '../graph'
 import { filesFromDrop, readImportFiles } from '../importFiles'
 import type { ImportFailure } from '../importFiles'
 import { useLibraryStore } from '../libraryStore'
-import type { MapDoc } from '../types'
+import type { MapDoc, MapRecord } from '../types'
 
-function summarize(doc: MapDoc) {
+function summarize(doc: MapRecord) {
   return {
     steps: doc.nodes.length,
     loops: findBackEdges(doc.nodes, doc.edges).size,
@@ -31,7 +31,7 @@ function byRecent(a: MapDoc, b: MapDoc): number {
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
 }
 
-function Card({ doc }: { doc: MapDoc }) {
+function Card({ doc }: { doc: MapRecord }) {
   const togglePin = useLibraryStore((s) => s.togglePin)
   const deleteMap = useLibraryStore((s) => s.deleteMap)
   const duplicateMap = useLibraryStore((s) => s.duplicateMap)
@@ -39,6 +39,9 @@ function Card({ doc }: { doc: MapDoc }) {
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(doc.name)
   const summary = summarize(doc)
+  // On a map you don't own, pin/rename/delete belong to the owner. Copy and
+  // Export stay: both produce a new document of your own rather than touching theirs.
+  const owned = doc.role === 'owner'
 
   const open = () => {
     window.location.hash = `#/map/${doc.id}`
@@ -100,20 +103,32 @@ function Card({ doc }: { doc: MapDoc }) {
           {summary.duration && ` · ${summary.duration}`}
           {' · '}
           {relativeTime(doc.updatedAt)}
+          {!owned && doc.ownerEmail && (
+            <span className="card-shared"> · shared by {doc.ownerEmail}</span>
+          )}
         </div>
       </div>
       <div className="map-card-actions">
-        <button
-          type="button"
-          className={`icon-btn${doc.pinned ? ' on' : ''}`}
-          title={doc.pinned ? 'Unpin' : 'Pin'}
-          onClick={() => togglePin(doc.id)}
-        >
-          {doc.pinned ? '★ Pinned' : '☆ Pin'}
-        </button>
-        <button type="button" className="icon-btn" title="Rename" onClick={() => setEditing(true)}>
-          Rename
-        </button>
+        {owned && (
+          <button
+            type="button"
+            className={`icon-btn${doc.pinned ? ' on' : ''}`}
+            title={doc.pinned ? 'Unpin' : 'Pin'}
+            onClick={() => togglePin(doc.id)}
+          >
+            {doc.pinned ? '★ Pinned' : '☆ Pin'}
+          </button>
+        )}
+        {owned && (
+          <button type="button" className="icon-btn" title="Rename" onClick={() => setEditing(true)}>
+            Rename
+          </button>
+        )}
+        {!owned && (
+          <span className="icon-btn role-tag">
+            {doc.role === 'editor' ? 'Can edit' : 'View only'}
+          </span>
+        )}
         <button
           type="button"
           className="icon-btn"
@@ -125,18 +140,20 @@ function Card({ doc }: { doc: MapDoc }) {
         <button type="button" className="icon-btn" title="Export" onClick={() => downloadDoc(doc)}>
           Export
         </button>
-        <button
-          type="button"
-          className="icon-btn danger"
-          title="Delete"
-          onClick={() => {
-            if (confirm(`Delete "${doc.name || 'Untitled process'}"? This can't be undone.`)) {
-              deleteMap(doc.id)
-            }
-          }}
-        >
-          Delete
-        </button>
+        {owned && (
+          <button
+            type="button"
+            className="icon-btn danger"
+            title="Delete"
+            onClick={() => {
+              if (confirm(`Delete "${doc.name || 'Untitled process'}"? This can't be undone.`)) {
+                deleteMap(doc.id)
+              }
+            }}
+          >
+            Delete
+          </button>
+        )}
       </div>
     </div>
   )
@@ -180,8 +197,12 @@ export default function Dashboard() {
   const matching = query.trim()
     ? maps.filter((m) => m.name.toLowerCase().includes(query.trim().toLowerCase()))
     : maps
-  const pinnedMaps = matching.filter((m) => m.pinned).sort(byRecent)
-  const otherMaps = matching.filter((m) => !m.pinned).sort(byRecent)
+  // Maps someone else owns are listed apart: they behave differently (no
+  // delete, no rename) and mixing them in would misrepresent what's yours.
+  const mine = matching.filter((m) => m.role === 'owner')
+  const sharedWithMe = matching.filter((m) => m.role !== 'owner').sort(byRecent)
+  const pinnedMaps = mine.filter((m) => m.pinned).sort(byRecent)
+  const otherMaps = mine.filter((m) => !m.pinned).sort(byRecent)
 
   const handleNew = async () => {
     window.location.hash = `#/map/${await createMap()}`
@@ -397,6 +418,16 @@ export default function Dashboard() {
               ))}
             </div>
           </section>
+          {sharedWithMe.length > 0 && (
+            <section>
+              <h2 className="dashboard-section-label">Shared with me</h2>
+              <div className="map-grid">
+                {sharedWithMe.map((doc) => (
+                  <Card key={doc.id} doc={doc} />
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>

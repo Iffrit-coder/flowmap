@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid'
 import { create } from 'zustand'
 import * as api from './api'
 import { emptyStep } from './types'
-import type { FlowEdge, MapDoc, StepData, StepNode } from './types'
+import type { FlowEdge, MapDoc, MapRecord, Role, StepData, StepNode } from './types'
 
 type State = {
   id: string | null
@@ -12,6 +12,14 @@ type State = {
   nodes: StepNode[]
   edges: FlowEdge[]
   pinned: boolean
+  /** The row revision this state was loaded from. Every save is written against
+   * it; the server refuses the write if it has moved on. */
+  rev: number
+  role: Role
+  /** Set when a save was refused because someone else got there first. While it
+   * holds a value autosave is stopped — retrying would just overwrite them once
+   * the revision refreshed. */
+  conflict: MapRecord | null
   selectedId: string | null
   selectedEdgeId: string | null
   onNodesChange: (changes: NodeChange<StepNode>[]) => void
@@ -25,7 +33,15 @@ type State = {
   selectEdge: (id: string | null) => void
   rename: (name: string) => void
   toDoc: () => MapDoc
-  loadMap: (doc: MapDoc) => void
+  loadMap: (doc: MapRecord) => void
+  resolveConflictByReloading: () => void
+  resolveConflictByOverwriting: () => void
+}
+
+/** Whether the current role may change the document. Read-only is enforced on
+ * the server; this only stops the UI from offering edits that would be refused. */
+export function useCanEdit(): boolean {
+  return useStore((s) => s.role === 'owner' || s.role === 'editor')
 }
 
 /** The currently-open map's live editing state — one map at a time. */
@@ -35,6 +51,9 @@ export const useStore = create<State>((set, get) => ({
   nodes: [],
   edges: [],
   pinned: false,
+  rev: 0,
+  role: 'owner',
+  conflict: null,
   selectedId: null,
   selectedEdgeId: null,
 
@@ -97,9 +116,28 @@ export const useStore = create<State>((set, get) => ({
       nodes: doc.nodes ?? [],
       edges: doc.edges ?? [],
       pinned: doc.pinned ?? false,
+      rev: doc.rev ?? 0,
+      role: doc.role ?? 'owner',
+      conflict: null,
       selectedId: null,
       selectedEdgeId: null,
     }),
+
+  /** Take theirs: the local edits since the conflict are discarded. */
+  resolveConflictByReloading: () => {
+    const { conflict } = get()
+    if (!conflict) return
+    get().loadMap(conflict)
+  },
+
+  /** Take mine: keep the local document but rebase onto their revision, so the
+   * next save is accepted rather than refused again. */
+  resolveConflictByOverwriting: () => {
+    const { conflict } = get()
+    if (!conflict) return
+    set({ rev: conflict.rev, conflict: null })
+    scheduleSave()
+  },
 }))
 
 /**
@@ -109,11 +147,34 @@ export const useStore = create<State>((set, get) => ({
  */
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 
+function scheduleSave(): void {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => flushSave(), 400)
+}
+
 export function flushSave(keepalive = false): void {
   clearTimeout(saveTimer)
-  const { id, name, nodes, edges } = useStore.getState()
+  const { id, name, nodes, edges, rev, role, conflict } = useStore.getState()
   if (!id) return
-  void api.updateMap(id, { name, nodes, edges }, keepalive)
+  // A viewer's edits would be refused by the server anyway; not sending them
+  // keeps the console clean and avoids a pointless request per keystroke.
+  if (role === 'viewer') return
+  // Already conflicted — wait for the user to choose rather than racing them.
+  if (conflict) return
+
+  void api
+    .updateMap(id, { name, nodes, edges, rev }, keepalive)
+    .then((saved) => {
+      // Only advance if we are still on the same map; the editor may have moved
+      // on while this request was in flight.
+      if (useStore.getState().id === saved.id) useStore.setState({ rev: saved.rev })
+    })
+    .catch((err: unknown) => {
+      if (err instanceof api.ConflictError) {
+        useStore.setState({ conflict: err.current })
+      }
+      // Anything else is transient; the next edit schedules another save.
+    })
 }
 
 useStore.subscribe((state, prev) => {
@@ -124,8 +185,7 @@ useStore.subscribe((state, prev) => {
   )
     return
   if (!state.id) return
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => flushSave(), 400)
+  scheduleSave()
 })
 
 window.addEventListener('beforeunload', () => flushSave(true))

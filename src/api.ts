@@ -1,4 +1,4 @@
-import type { MapDoc } from './types'
+import type { MapDoc, MapRecord, Role } from './types'
 
 class ApiError extends Error {}
 
@@ -13,6 +13,32 @@ let onUnauthorized: (() => void) | null = null
 
 export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn
+}
+
+/** Raised on 409 so callers can distinguish "someone else saved" from a plain
+ * failure — it is the one error with a recoverable, user-facing choice behind it. */
+export class ConflictError extends Error {
+  current: MapRecord
+
+  constructor(message: string, current: MapRecord) {
+    super(message)
+    this.current = current
+  }
+}
+
+/** The link token for the map currently open via a share URL, if any.
+ *
+ * Module-level rather than threaded through every call because it is a property
+ * of the session's entry point, not of any one request — and it stays in memory
+ * only, so closing the tab drops it. */
+let activeShareToken: string | null = null
+
+export function setShareToken(token: string | null): void {
+  activeShareToken = token
+}
+
+export function getShareToken(): string | null {
+  return activeShareToken
 }
 
 /** A response that isn't JSON didn't come from our handlers at all — it's a
@@ -32,8 +58,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(`/api${path}`, {
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
       ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(activeShareToken ? { 'X-Share-Token': activeShareToken } : {}),
+        ...init?.headers,
+      },
     })
   } catch {
     throw new ApiError("Can't reach the flowmap server. Check your connection.")
@@ -44,8 +74,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     if (res.status === 401) onUnauthorized?.()
-    const body = await res.json().catch(() => ({}))
-    throw new ApiError((body as { error?: string }).error ?? `Request failed (${res.status})`)
+    const body = (await res.json().catch(() => ({}))) as { error?: string; current?: MapRecord }
+    if (res.status === 409 && body.current) {
+      throw new ConflictError(body.error ?? 'This map changed somewhere else.', body.current)
+    }
+    throw new ApiError(body.error ?? `Request failed (${res.status})`)
   }
   return res.json() as Promise<T>
 }
@@ -82,15 +115,72 @@ export function resendVerification(): Promise<{ ok: true; alreadyVerified?: bool
   return request('/auth/resend-verification', { method: 'POST' })
 }
 
-export function listMaps(): Promise<{ maps: MapDoc[] }> {
+export function listMaps(): Promise<{ maps: MapRecord[] }> {
   return request('/maps')
 }
 
-export function createMap(patch: Partial<MapDoc> = {}): Promise<MapDoc> {
+export function getMap(id: string): Promise<MapRecord> {
+  return request(`/maps/${id}`)
+}
+
+/** Opens a map from a share token alone — the holder has the token and no idea
+ * which map it belongs to. */
+export function openShared(token: string): Promise<MapRecord> {
+  return request('/shared', { headers: { 'X-Share-Token': token } })
+}
+
+export type ShareLink = {
+  id: string
+  role: Role
+  label: string | null
+  createdAt: string
+  expiresAt: string | null
+  lastUsedAt: string | null
+}
+
+export function listLinks(mapId: string): Promise<{ links: ShareLink[] }> {
+  return request(`/shares/links?mapId=${encodeURIComponent(mapId)}`)
+}
+
+export function createLink(
+  mapId: string,
+  role: Role,
+  label?: string,
+  expiresInDays?: number,
+): Promise<{ token: string; id: string; role: Role }> {
+  return request('/shares/links', {
+    method: 'POST',
+    body: JSON.stringify({ mapId, role, label, expiresInDays }),
+  })
+}
+
+export function revokeLink(mapId: string, id: string): Promise<{ ok: true }> {
+  return request('/shares/links', { method: 'DELETE', body: JSON.stringify({ mapId, id }) })
+}
+
+export type Grant = { email: string; role: Role; createdAt: string }
+
+export function listGrants(mapId: string): Promise<{ grants: Grant[] }> {
+  return request(`/shares/grants?mapId=${encodeURIComponent(mapId)}`)
+}
+
+export function addGrant(mapId: string, email: string, role: Role): Promise<{ email: string; role: Role }> {
+  return request('/shares/grants', { method: 'POST', body: JSON.stringify({ mapId, email, role }) })
+}
+
+export function removeGrant(mapId: string, email: string): Promise<{ ok: true }> {
+  return request('/shares/grants', { method: 'DELETE', body: JSON.stringify({ mapId, email }) })
+}
+
+export function createMap(patch: Partial<MapDoc> = {}): Promise<MapRecord> {
   return request('/maps', { method: 'POST', body: JSON.stringify(patch) })
 }
 
-export function updateMap(id: string, patch: Partial<MapDoc>, keepalive = false): Promise<MapDoc> {
+export function updateMap(
+  id: string,
+  patch: Partial<MapDoc> & { rev?: number },
+  keepalive = false,
+): Promise<MapRecord> {
   return request(`/maps/${id}`, { method: 'PUT', body: JSON.stringify(patch), keepalive })
 }
 
@@ -98,7 +188,7 @@ export function deleteMap(id: string): Promise<{ ok: true }> {
   return request(`/maps/${id}`, { method: 'DELETE' })
 }
 
-export function importMaps(maps: Partial<MapDoc>[]): Promise<{ maps: MapDoc[] }> {
+export function importMaps(maps: Partial<MapDoc>[]): Promise<{ maps: MapRecord[] }> {
   return request('/maps/import', { method: 'POST', body: JSON.stringify({ maps }) })
 }
 

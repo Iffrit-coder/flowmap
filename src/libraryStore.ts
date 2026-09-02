@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import * as api from './api'
-import type { MapDoc } from './types'
+import type { MapDoc, MapRecord } from './types'
 
 const IMPORT_CHUNK = 25
 
 type LibraryState = {
-  maps: MapDoc[]
+  maps: MapRecord[]
   loaded: boolean
   refresh: () => Promise<void>
   createMap: () => Promise<string>
@@ -14,7 +14,7 @@ type LibraryState = {
   renameMap: (id: string, name: string) => Promise<void>
   duplicateMap: (id: string) => Promise<string>
   importMap: (doc: Partial<MapDoc>) => Promise<string>
-  importLibrary: (docs: Partial<MapDoc>[]) => Promise<MapDoc[]>
+  importLibrary: (docs: Partial<MapDoc>[]) => Promise<MapRecord[]>
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -71,7 +71,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
    * request body limit, and chunking also lets the dashboard show progress on a
    * large import instead of hanging on a single opaque call. */
   importLibrary: async (docs) => {
-    const imported: MapDoc[] = []
+    const imported: MapRecord[] = []
     for (let i = 0; i < docs.length; i += IMPORT_CHUNK) {
       const { maps } = await api.importMaps(docs.slice(i, i + IMPORT_CHUNK))
       imported.push(...maps)

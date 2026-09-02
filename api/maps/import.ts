@@ -55,5 +55,5 @@ export default withErrors('maps/import', async (req: ApiRequest, res: ServerResp
     ),
   )
 
-  sendJson(res, 200, { maps: imported })
+  sendJson(res, 200, { maps: imported.map((m) => ({ ...m, rev: 0, role: 'owner' })) })
 })

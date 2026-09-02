@@ -21,6 +21,9 @@ async function resolveHandler(pathname: string): Promise<Handler | null> {
   if (pathname === '/api/auth/resend-verification')
     return (await import('../api/auth/resend-verification.js')).default
   if (pathname === '/api/maps') return (await import('../api/maps/index.js')).default
+  if (pathname === '/api/shared') return (await import('../api/shared.js')).default
+  if (pathname === '/api/shares/links') return (await import('../api/shares/links.js')).default
+  if (pathname === '/api/shares/grants') return (await import('../api/shares/grants.js')).default
   if (pathname === '/api/maps/import') return (await import('../api/maps/import.js')).default
   if (/^\/api\/maps\/[^/]+$/.test(pathname)) return (await import('../api/maps/[id].js')).default
   return null
