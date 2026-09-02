@@ -1,10 +1,10 @@
 import type { ServerResponse } from 'node:http'
-import sql from '../_lib/db.js'
-import { appUrl, deliver, resetEmail } from '../_lib/email.js'
-import { readJson, sendJson, withErrors } from '../_lib/http.js'
-import type { ApiRequest } from '../_lib/http.js'
-import { clientIp, hit } from '../_lib/rateLimit.js'
-import { issue, pruneExpired } from '../_lib/tokens.js'
+import sql from '../../_lib/db.js'
+import { appUrl, deliver, resetEmail } from '../../_lib/email.js'
+import { readJson, sendJson, withErrors } from '../../_lib/http.js'
+import type { ApiRequest } from '../../_lib/http.js'
+import { clientIp, hit } from '../../_lib/rateLimit.js'
+import { issue, pruneExpired } from '../../_lib/tokens.js'
 
 const WINDOW = 60 * 60
 const PER_EMAIL = 3

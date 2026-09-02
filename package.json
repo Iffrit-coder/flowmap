@@ -12,10 +12,11 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"tsx watch scripts/dev-api-server.ts\"",
-    "build": "node scripts/check-esm-imports.mjs && tsc -b && vite build",
+    "build": "node scripts/check-esm-imports.mjs && node scripts/check-function-count.mjs && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "check:esm": "node scripts/check-esm-imports.mjs"
+    "check:esm": "node scripts/check-esm-imports.mjs",
+    "check:functions": "node scripts/check-function-count.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",

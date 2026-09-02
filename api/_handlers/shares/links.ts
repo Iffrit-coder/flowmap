@@ -1,9 +1,9 @@
 import type { ServerResponse } from 'node:http'
-import { getUserId } from '../_lib/auth.js'
-import { hashToken, isOwner, newLinkToken } from '../_lib/access.js'
-import sql from '../_lib/db.js'
-import { readJson, sendJson, withErrors } from '../_lib/http.js'
-import type { ApiRequest } from '../_lib/http.js'
+import { getUserId } from '../../_lib/auth.js'
+import { hashToken, isOwner, newLinkToken } from '../../_lib/access.js'
+import sql from '../../_lib/db.js'
+import { readJson, sendJson, withErrors } from '../../_lib/http.js'
+import type { ApiRequest } from '../../_lib/http.js'
 
 const MAX_LINKS_PER_MAP = 20
 

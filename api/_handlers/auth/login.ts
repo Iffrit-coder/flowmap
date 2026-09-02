@@ -1,9 +1,9 @@
 import type { ServerResponse } from 'node:http'
-import { createSession, verifyPassword } from '../_lib/auth.js'
-import sql from '../_lib/db.js'
-import { readJson, sendJson, withErrors } from '../_lib/http.js'
-import type { ApiRequest } from '../_lib/http.js'
-import { clientIp, hit, reset } from '../_lib/rateLimit.js'
+import { createSession, verifyPassword } from '../../_lib/auth.js'
+import sql from '../../_lib/db.js'
+import { readJson, sendJson, withErrors } from '../../_lib/http.js'
+import type { ApiRequest } from '../../_lib/http.js'
+import { clientIp, hit, reset } from '../../_lib/rateLimit.js'
 
 const WINDOW = 15 * 60
 // Per-email is the account-takeover defence; per-IP catches the same attacker

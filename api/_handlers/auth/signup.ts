@@ -1,14 +1,14 @@
 import type { ServerResponse } from 'node:http'
 import { nanoid } from 'nanoid'
-import { createSession, hashPassword } from '../_lib/auth.js'
-import sql from '../_lib/db.js'
-import { readJson, sendJson, withErrors } from '../_lib/http.js'
-import type { ApiRequest } from '../_lib/http.js'
-import { checkPassword } from '../_lib/password.js'
-import { clientIp, hit } from '../_lib/rateLimit.js'
-import { appUrl, deliver, verifyEmail } from '../_lib/email.js'
-import { issue } from '../_lib/tokens.js'
-import { demoDoc } from '../../src/demoMap.js'
+import { createSession, hashPassword } from '../../_lib/auth.js'
+import sql from '../../_lib/db.js'
+import { readJson, sendJson, withErrors } from '../../_lib/http.js'
+import type { ApiRequest } from '../../_lib/http.js'
+import { checkPassword } from '../../_lib/password.js'
+import { clientIp, hit } from '../../_lib/rateLimit.js'
+import { appUrl, deliver, verifyEmail } from '../../_lib/email.js'
+import { issue } from '../../_lib/tokens.js'
+import { demoDoc } from '../../../src/demoMap.js'
 
 const WINDOW = 60 * 60
 const PER_IP = 5
