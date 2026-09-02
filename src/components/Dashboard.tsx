@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as api from '../api'
+import ShareDialog from './ShareDialog'
 import { useAuthStore } from '../authStore'
 import { downloadDoc, downloadLibrary } from '../download'
 import { findBackEdges, formatDuration, totalDuration } from '../graph'
@@ -37,6 +38,7 @@ function Card({ doc }: { doc: MapRecord }) {
   const duplicateMap = useLibraryStore((s) => s.duplicateMap)
   const renameMap = useLibraryStore((s) => s.renameMap)
   const [editing, setEditing] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [draftName, setDraftName] = useState(doc.name)
   const summary = summarize(doc)
   // On a map you don't own, pin/rename/delete belong to the owner. Copy and
@@ -124,6 +126,16 @@ function Card({ doc }: { doc: MapRecord }) {
             Rename
           </button>
         )}
+        {owned && (
+          <button
+            type="button"
+            className="icon-btn share"
+            title="Share this map"
+            onClick={() => setSharing(true)}
+          >
+            Share
+          </button>
+        )}
         {!owned && (
           <span className="icon-btn role-tag">
             {doc.role === 'editor' ? 'Can edit' : 'View only'}
@@ -155,6 +167,7 @@ function Card({ doc }: { doc: MapRecord }) {
           </button>
         )}
       </div>
+      {sharing && <ShareDialog mapId={doc.id} onClose={() => setSharing(false)} />}
     </div>
   )
 }

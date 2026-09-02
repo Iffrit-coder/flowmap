@@ -525,14 +525,17 @@ textarea:focus {
 .map-card-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 2px 4px;
   padding: 6px 8px;
   border-top: 1px solid var(--line);
 }
 
 .icon-btn {
-  flex: 1 1 auto;
-  min-width: 44px;
+  /* Sized to their labels rather than stretched: with six actions the row
+     wraps, and a stretched last button reads as a layout bug rather than a
+     second line. */
+  flex: 0 1 auto;
+  min-width: 0;
   border: 1px solid transparent;
   background: none;
   border-radius: 5px;
@@ -922,4 +925,17 @@ textarea:focus {
   background: var(--bg);
   color: var(--muted);
   cursor: default;
+}
+
+/* Share carries more weight than the other card actions: it is the one that
+   involves another person, and burying it at equal weight is what made the
+   feature read as missing. */
+.icon-btn.share {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.icon-btn.share:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: var(--accent);
 }
