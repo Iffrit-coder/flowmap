@@ -1,0 +1,43 @@
+model:
+  # Fully open (weights, data, code), Apache-2.0. Dense architecture, well supported by
+  # bitsandbytes/PEFT. To try the newer hybrid model, set allenai/Olmo-Hybrid-7B
+  # (needs transformers>=5.3; run `python -m scout smoke --model ...` first).
+  name: allenai/Olmo-3-1025-7B
+  quantize_4bit: true
+  max_length: 1024
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+
+data:
+  dir: data
+  # What the model reads. "blurb" = scrubbed back-cover style premise + genre tags.
+  view: blurb
+  # Titles/authors let a model that memorised famous books recognise them; keep off.
+  include_title: false
+  min_year: 1990
+  # Works published after this have not had time to accumulate engagement.
+  max_year: 2022
+  min_description_chars: 200
+  # Keep at most this many zero-engagement works per engaged work.
+  max_zero_ratio: 2.0
+  # Time split on first-publish year: train <= train_until < val <= val_until < test
+  split:
+    train_until: 2015
+    val_until: 2018
+
+train:
+  epochs: 2
+  batch_size: 2
+  grad_accum: 8
+  eval_batch_size: 8
+  lr: 1.0e-4
+  head_lr: 1.0e-3
+  weight_decay: 0.0
+  warmup_ratio: 0.05
+  eval_every: 200      # optimizer steps
+  patience: 4          # evals without val Spearman improvement before stopping
+  seed: 13
+  max_train_examples: null
+  out_dir: runs/olmo3-blurb

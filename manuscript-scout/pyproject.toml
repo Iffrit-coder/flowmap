@@ -1,0 +1,30 @@
+[project]
+name = "manuscript-scout"
+version = "0.1.0"
+description = "Rank manuscripts/pitches by sales potential with a QLoRA-tuned open model (OLMo 3 7B)"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pandas",
+  "scipy",
+  "scikit-learn",
+  "pyyaml",
+  "tqdm",
+  "requests",
+]
+
+[project.optional-dependencies]
+# torch itself is installed separately with the CUDA wheel index (see README)
+gpu = ["transformers>=4.57", "peft>=0.13", "accelerate", "bitsandbytes>=0.43"]
+embed = ["sentence-transformers"]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["scout*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
